@@ -103,12 +103,12 @@ func (r *{{.Opts.RepoName}}) Update(ctx context.Context, entity *{{.Opts.EntityN
 	return session.UpdateMany({{lcFirst .Opts.RepoName}}Table, r.toValues(entity), depot.Where("{{$id.Column}}", entity.{{$id.Field}}))
 }
 
-func (r *{{.Opts.RepoName}}) DeleteByID(ctx context.Context, id string) error {
-	return r.delete(ctx, depot.Where("id", id))
+func (r *{{.Opts.RepoName}}) DeleteBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type}}) error {
+	return r.delete(ctx, depot.Where("{{$id.Column}}", {{$id.Field}}))
 }
 
 func (r *{{.Opts.RepoName}}) Delete(ctx context.Context, entity *{{.Opts.EntityName}}) error {
-	return r.delete(ctx, depot.Where("id", entity.{{$id.Field}}))
+	return r.delete(ctx, depot.Where("{{$id.Column}}", entity.{{$id.Field}}))
 }
 
 {{end}}
