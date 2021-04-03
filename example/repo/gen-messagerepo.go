@@ -17,6 +17,28 @@ var (
 )
 
 type MessageRepo struct {
+	factory *depot.Factory
+}
+
+func NewMessageRepo(factory *depot.Factory) *MessageRepo {
+	return &MessageRepo{
+		factory: factory,
+	}
+}
+
+func (r *MessageRepo) Begin(ctx context.Context) (context.Context, error) {
+	_, ctx, err := r.factory.Session(ctx)
+	return ctx, err
+}
+
+func (r *MessageRepo) Commit(ctx context.Context) error {
+	session := depot.GetSession(ctx)
+	return session.Commit()
+}
+
+func (r *MessageRepo) Rollback(ctx context.Context) error {
+	session := depot.GetSession(ctx)
+	return session.Rollback()
 }
 
 func (r *MessageRepo) fromValues(vals depot.Values) *models.Message {
@@ -92,8 +114,8 @@ func (r *MessageRepo) Update(ctx context.Context, entity *models.Message) error 
 	return session.UpdateMany(messageRepoTable, r.toValues(entity), depot.Where("id", entity.ID))
 }
 
-func (r *MessageRepo) DeleteByID(ctx context.Context, id string) error {
-	return r.delete(ctx, depot.Where("id", id))
+func (r *MessageRepo) DeleteByID(ctx context.Context, ID string) error {
+	return r.delete(ctx, depot.Where("id", ID))
 }
 
 func (r *MessageRepo) Delete(ctx context.Context, entity *models.Message) error {

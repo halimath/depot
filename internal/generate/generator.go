@@ -28,6 +28,28 @@ var (
 )
 
 type {{.Opts.RepoName}} struct {
+	factory *depot.Factory
+}
+
+func New{{.Opts.RepoName}} (factory *depot.Factory) *{{.Opts.RepoName}} {
+	return &{{.Opts.RepoName}}{
+		factory: factory,
+	}
+}
+
+func (r *{{.Opts.RepoName}}) Begin(ctx context.Context) (context.Context, error) {
+	_, ctx, err := r.factory.Session(ctx)
+	return ctx, err
+}
+
+func (r *{{.Opts.RepoName}}) Commit(ctx context.Context) error {
+	session := depot.GetSession(ctx)
+	return session.Commit()
+}
+
+func (r *{{.Opts.RepoName}}) Rollback(ctx context.Context) error {
+	session := depot.GetSession(ctx)
+	return session.Rollback()
 }
 
 func (r *{{.Opts.RepoName}}) fromValues(vals depot.Values) *{{.Opts.EntityName}} {

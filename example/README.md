@@ -26,7 +26,7 @@ Based on that definition, `depot` generates a repository type using the command
 line
 
 ```
-$ depot generate-repo -table messages -repo-package repo ./models/models.go Message > ./repo/gen-messagerepo.go 
+$ depot -table messages -repo-package repo generate-repo ./models/models.go Message > ./repo/gen-messagerepo.go
 ```
 
 The result is also part of this git repo: [`repo/gen-messagerepo.go`](./repo/gen-messagerepo.go).
