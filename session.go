@@ -78,7 +78,7 @@ func (s *Session) QueryOne(cols ColsClause, from TableClause, where ...Clause) (
 		if err == sql.ErrNoRows {
 			return nil, ErrNoResult
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to execute '%s': %e", query, err)
 	}
 
 	return values, nil
@@ -93,7 +93,7 @@ func (s *Session) QueryMany(cols ColsClause, from TableClause, clauses ...Clause
 
 	rows, err := s.tx.QueryContext(s.ctx, query, params...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute '%s': %e", query, err)
 	}
 	defer rows.Close()
 
@@ -117,6 +117,9 @@ func (s *Session) QueryCount(from TableClause, clauses ...Clause) (count int, er
 	row := s.tx.QueryRowContext(s.ctx, query, params...)
 
 	err = row.Scan(&count)
+	if err != nil {
+		err = fmt.Errorf("failed to execute '%s': %e", query, err)
+	}
 	return
 }
 
@@ -154,8 +157,12 @@ func (s *Session) InsertOne(into TableClause, values Values) error {
 	}
 
 	insert.WriteString(")")
+	query := insert.String()
 
-	_, err := s.tx.Exec(insert.String(), args...)
+	_, err := s.tx.Exec(query, args...)
+	if err != nil {
+		err = fmt.Errorf("failed to execute '%s': %e", query, err)
+	}
 	// TODO: What about the result?
 	return err
 }
@@ -182,11 +189,16 @@ func (s *Session) UpdateMany(table TableClause, values Values, where ...Clause) 
 	}
 	update.WriteRune(' ')
 
+	query := update.String()
+
 	whereClause, whereArgs := buildWhereClause(where...)
 	update.WriteString(whereClause)
 	copy(args[len(values):], whereArgs)
 
-	_, err := s.tx.Exec(update.String(), args...)
+	_, err := s.tx.Exec(query, args...)
+	if err != nil {
+		err = fmt.Errorf("failed to execute '%s': %e", query, err)
+	}
 	// TODO: What about the result?
 	return err
 }
@@ -194,9 +206,12 @@ func (s *Session) UpdateMany(table TableClause, values Values, where ...Clause) 
 // DeleteMany deletes all matching rows from the database.
 func (s *Session) DeleteMany(from TableClause, where ...Clause) error {
 	whereClause, whereArgs := buildWhereClause(where...)
-	delete := fmt.Sprintf("delete from %s %s", from.SQL(), whereClause)
+	query := fmt.Sprintf("delete from %s %s", from.SQL(), whereClause)
 
-	_, err := s.tx.Exec(delete, whereArgs...)
+	_, err := s.tx.Exec(query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("failed to execute '%s': %e", query, err)
+	}
 	return err
 }
 
