@@ -75,10 +75,10 @@ func (s *Session) QueryOne(cols ColsClause, from TableClause, where ...Clause) (
 	row := s.tx.QueryRowContext(s.ctx, query, params...)
 	values, err := collectValues(cols.Names(), row)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoResult
 		}
-		return nil, fmt.Errorf("failed to execute '%s': %e", query, err)
+		return nil, fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
 
 	return values, nil
@@ -93,7 +93,7 @@ func (s *Session) QueryMany(cols ColsClause, from TableClause, clauses ...Clause
 
 	rows, err := s.tx.QueryContext(s.ctx, query, params...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute '%s': %e", query, err)
+		return nil, fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
 	defer rows.Close()
 
@@ -118,7 +118,7 @@ func (s *Session) QueryCount(from TableClause, clauses ...Clause) (count int, er
 
 	err = row.Scan(&count)
 	if err != nil {
-		err = fmt.Errorf("failed to execute '%s': %e", query, err)
+		err = fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
 	return
 }
@@ -161,7 +161,7 @@ func (s *Session) InsertOne(into TableClause, values Values) error {
 
 	_, err := s.tx.Exec(query, args...)
 	if err != nil {
-		err = fmt.Errorf("failed to execute '%s': %e", query, err)
+		err = fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
 	// TODO: What about the result?
 	return err
@@ -197,7 +197,7 @@ func (s *Session) UpdateMany(table TableClause, values Values, where ...Clause) 
 
 	_, err := s.tx.Exec(query, args...)
 	if err != nil {
-		err = fmt.Errorf("failed to execute '%s': %e", query, err)
+		err = fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
 	// TODO: What about the result?
 	return err
@@ -210,7 +210,7 @@ func (s *Session) DeleteMany(from TableClause, where ...Clause) error {
 
 	_, err := s.tx.Exec(query, whereArgs...)
 	if err != nil {
-		err = fmt.Errorf("failed to execute '%s': %e", query, err)
+		err = fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
 	return err
 }
