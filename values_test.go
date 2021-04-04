@@ -55,6 +55,8 @@ func TestValuesGetBool(t *testing.T) {
 		{"foo", false, false},
 		{true, true, true},
 		{false, true, false},
+		{int64(1), true, true},
+		{int64(0), true, false},
 	}
 
 	runTests(t, tests, func(v *Values, key string) (interface{}, bool) {

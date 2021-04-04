@@ -51,6 +51,8 @@ func (v Values) GetBool(key string) (bool, bool) {
 	switch x := val.(type) {
 	case bool:
 		return x, ok
+	case int64:
+		return x != 0, ok
 	default:
 		return false, false
 	}
