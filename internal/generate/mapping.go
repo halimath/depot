@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// FieldMapping defines the mapping of a single struct field.
 type FieldMapping struct {
 	Field  string
 	Column string
@@ -16,6 +17,8 @@ type FieldMapping struct {
 	Opts   FieldOptions
 }
 
+// ValuesGetterName returns the name of the Values.Get* method
+// to invoke to obtain a value assignable to the target field.
 func (f *FieldMapping) ValuesGetterName() string {
 	if f.Type == "[]byte" {
 		return "GetBytes"
@@ -28,27 +31,20 @@ func (f *FieldMapping) ValuesGetterName() string {
 	return "Get" + strings.ToUpper(f.Type[0:1]) + f.Type[1:]
 }
 
-func (f *FieldMapping) SQLType() string {
-	if strings.HasPrefix(f.Type, "int") || strings.HasPrefix(f.Type, "uint") {
-		return "int64"
-	}
-	if strings.HasPrefix(f.Type, "float") {
-		return "float64"
-	}
-
-	return f.Type
-}
-
+// FieldOptions defines the additional options to be marked on field.s
 type FieldOptions struct {
 	ID bool
 }
 
+// StructMapping defines how a single struct is mapped.
 type StructMapping struct {
 	Package string
 	Name    string
 	Fields  []FieldMapping
 }
 
+// ID returns the field mapping defining the primary key or nil
+// if no such mapping is defined.
 func (s *StructMapping) ID() *FieldMapping {
 	for _, f := range s.Fields {
 		if f.Opts.ID {

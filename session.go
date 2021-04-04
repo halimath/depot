@@ -17,7 +17,7 @@ var (
 	ErrMarkedForRollback = errors.New("session has been marked for rollback")
 )
 
-// A session defines an interaction session with the database.
+// Session defines an interaction session with the database.
 // A session uses a single transaction and is bound to a single
 // Context. A session provides an abstract interface built around
 // Values and Clauses.

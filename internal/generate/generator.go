@@ -165,6 +165,7 @@ func lcFirst(s string) string {
 	return strings.ToLower(s[0:1]) + s[1:]
 }
 
+// Options defines the generation options.
 type Options struct {
 	Filename    string
 	EntityName  string
@@ -179,6 +180,9 @@ type generationModel struct {
 	Mapping *StructMapping
 }
 
+// GenerateRepository generates a repository implementation based
+// on the given options. It returns the generated source code or
+// an error.
 func GenerateRepository(options Options) ([]byte, error) {
 	if len(options.RepoName) == 0 {
 		options.RepoName = options.EntityName + "Repo"
@@ -194,7 +198,7 @@ func GenerateRepository(options Options) ([]byte, error) {
 	}
 
 	if len(options.RepoPackage) == 0 {
-		// TODO: What is a usefull default here?
+		// TODO: What is a useful default here?
 		options.RepoPackage = mapping.Package
 	} else if options.RepoPackage != mapping.Package {
 		options.EntityName = mapping.Package + "." + options.EntityName

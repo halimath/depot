@@ -5,6 +5,7 @@ package models
 import "time"
 
 type (
+	// Message demonstrates a persistent struct showing several mapped fields.
 	Message struct {
 		ID         string    `depot:"id,id"`
 		Text       string    `depot:"text"`
