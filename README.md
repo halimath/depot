@@ -12,6 +12,8 @@ what I consider to be _idiomatic go_.
 
 # Usage
 
+`depot` requires at least Go 1.14.
+
 ## Installation
 
 ```
