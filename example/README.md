@@ -22,11 +22,13 @@ type Message struct {
 
 The fields contain tags that define the column names as well as the id field.
 
-Based on that definition, `depot` generates a repository type using the command
-line
+Based on that definition, `depot` generates a repository type. The generation
+is configured by placing a  `//go:generate` comment in [`models.go`](./models/models.go).
+
+To run the generation, execute
 
 ```
-$ depot -table messages -repo-package repo generate-repo ./models/models.go Message > ./repo/gen-messagerepo.go
+$ go generate ./models
 ```
 
 The result is also part of this git repo: [`repo/gen-messagerepo.go`](./repo/gen-messagerepo.go).
