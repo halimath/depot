@@ -184,11 +184,11 @@ func (s *Session) UpdateMany(table TableClause, values Values, where ...Clause) 
 	}
 	update.WriteRune(' ')
 
-	query := update.String()
-
 	whereClause, whereArgs := buildWhereClause(where...)
 	update.WriteString(whereClause)
 	copy(args[len(values):], whereArgs)
+
+	query := update.String()
 
 	_, err := s.tx.Exec(query, args...)
 	if err != nil {
