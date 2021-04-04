@@ -17,11 +17,6 @@ var (
 	ErrMarkedForRollback = errors.New("session has been marked for rollback")
 )
 
-// Values contains the persistent column values for an entity either after reading
-// the values from the database to re-create the entity value or to persist the
-// entity's values in the database (either for insertion or update).
-type Values map[string]interface{}
-
 // A session defines an interaction session with the database.
 // A session uses a single transaction and is bound to a single
 // Context. A session provides an abstract interface built around

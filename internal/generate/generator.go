@@ -52,11 +52,17 @@ func (r *{{.Opts.RepoName}}) Rollback(ctx context.Context) error {
 	return session.Rollback()
 }
 
-func (r *{{.Opts.RepoName}}) fromValues(vals depot.Values) *{{.Opts.EntityName}} {
-	return &{{.Opts.EntityName}}{
-		{{range .Mapping.Fields}}{{.Field}}: {{.Type}}(vals["{{.Column}}"].({{.SQLType}})),
-		{{end}}
+func (r *{{.Opts.RepoName}}) fromValues(vals depot.Values) (*{{.Opts.EntityName}}, error) {
+	{{range .Mapping.Fields}}
+	{{toLower .Field}}, ok := vals.{{.ValuesGetterName}}("{{.Column}}")
+	if !ok {
+		return nil, fmt.Errorf("failed to get {{.Column}}: invalid value: %#v", vals["{{.Column}}"])
 	}
+	{{end}}
+	return &{{.Opts.EntityName}}{
+		{{range .Mapping.Fields}}{{.Field}}: {{toLower .Field}},
+		{{end}}
+	}, nil
 }
 
 func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...depot.Clause) ([]*{{.Opts.EntityName}}, error) {
@@ -69,7 +75,11 @@ func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...depot.Clause) 
 
 	res := make([]*{{.Opts.EntityName}}, 0, len(vals))
 	for _, v := range vals {
-		res = append(res, r.fromValues(v))
+		entity, err := r.fromValues(v)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, entity)
 	}
 	return res, nil
 }
@@ -94,7 +104,7 @@ func (r *{{.Opts.RepoName}}) LoadBy{{$id.Field}}(ctx context.Context, {{$id.Fiel
 		session.Error(err)
 		return nil, err
 	}
-	return r.fromValues(vals), nil
+	return r.fromValues(vals)
 }
 
 {{end}}
@@ -139,7 +149,13 @@ func (r *{{.Opts.RepoName}}) Delete(ctx context.Context, entity *{{.Opts.EntityN
 )
 
 var (
-	tpl = template.Must(template.New("repo").Funcs(map[string]interface{}{"lcFirst": lcFirst}).Parse(repoTemplate))
+	tpl = template.Must(
+		template.
+			New("repo").
+			Funcs(map[string]interface{}{
+				"lcFirst": lcFirst,
+				"toLower": strings.ToLower,
+			}).Parse(repoTemplate))
 )
 
 func lcFirst(s string) string {

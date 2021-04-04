@@ -16,6 +16,18 @@ type FieldMapping struct {
 	Opts   FieldOptions
 }
 
+func (f *FieldMapping) ValuesGetterName() string {
+	if f.Type == "[]byte" {
+		return "GetBytes"
+	}
+
+	if f.Type == "time.Time" {
+		return "GetTime"
+	}
+
+	return "Get" + strings.ToUpper(f.Type[0:1]) + f.Type[1:]
+}
+
 func (f *FieldMapping) SQLType() string {
 	if strings.HasPrefix(f.Type, "int") || strings.HasPrefix(f.Type, "uint") {
 		return "int64"

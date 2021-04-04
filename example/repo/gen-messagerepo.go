@@ -5,7 +5,7 @@ package repo
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"github.com/halimath/depot"
 	"github.com/halimath/depot/example/models"
@@ -41,15 +41,46 @@ func (r *MessageRepo) Rollback(ctx context.Context) error {
 	return session.Rollback()
 }
 
-func (r *MessageRepo) fromValues(vals depot.Values) *models.Message {
-	return &models.Message{
-		ID:         string(vals["id"].(string)),
-		Text:       string(vals["text"].(string)),
-		OrderIndex: int(vals["order_index"].(int64)),
-		Length:     float32(vals["len"].(float64)),
-		Attachment: []byte(vals["attachment"].([]byte)),
-		Created:    time.Time(vals["created"].(time.Time)),
+func (r *MessageRepo) fromValues(vals depot.Values) (*models.Message, error) {
+
+	id, ok := vals.GetString("id")
+	if !ok {
+		return nil, fmt.Errorf("failed to get id: invalid value: %#v", vals["id"])
 	}
+
+	text, ok := vals.GetString("text")
+	if !ok {
+		return nil, fmt.Errorf("failed to get text: invalid value: %#v", vals["text"])
+	}
+
+	orderindex, ok := vals.GetInt("order_index")
+	if !ok {
+		return nil, fmt.Errorf("failed to get order_index: invalid value: %#v", vals["order_index"])
+	}
+
+	length, ok := vals.GetFloat32("len")
+	if !ok {
+		return nil, fmt.Errorf("failed to get len: invalid value: %#v", vals["len"])
+	}
+
+	attachment, ok := vals.GetBytes("attachment")
+	if !ok {
+		return nil, fmt.Errorf("failed to get attachment: invalid value: %#v", vals["attachment"])
+	}
+
+	created, ok := vals.GetTime("created")
+	if !ok {
+		return nil, fmt.Errorf("failed to get created: invalid value: %#v", vals["created"])
+	}
+
+	return &models.Message{
+		ID:         id,
+		Text:       text,
+		OrderIndex: orderindex,
+		Length:     length,
+		Attachment: attachment,
+		Created:    created,
+	}, nil
 }
 
 func (r *MessageRepo) find(ctx context.Context, clauses ...depot.Clause) ([]*models.Message, error) {
@@ -62,7 +93,11 @@ func (r *MessageRepo) find(ctx context.Context, clauses ...depot.Clause) ([]*mod
 
 	res := make([]*models.Message, 0, len(vals))
 	for _, v := range vals {
-		res = append(res, r.fromValues(v))
+		entity, err := r.fromValues(v)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, entity)
 	}
 	return res, nil
 }
@@ -85,7 +120,7 @@ func (r *MessageRepo) LoadByID(ctx context.Context, ID string) (*models.Message,
 		session.Error(err)
 		return nil, err
 	}
-	return r.fromValues(vals), nil
+	return r.fromValues(vals)
 }
 
 func (r *MessageRepo) toValues(entity *models.Message) depot.Values {
