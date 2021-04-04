@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/halimath/depot/internal/generate"
@@ -50,7 +51,7 @@ func main() {
 	}
 
 	if len(*out) > 0 {
-		err := os.WriteFile(*out, source, 0644)
+		err := ioutil.WriteFile(*out, source, 0644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: failed to write generated file: %s", os.Args[0], err)
 		}
