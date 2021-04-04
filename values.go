@@ -7,14 +7,11 @@ import "time"
 // entity's values in the database (either for insertion or update).
 type Values map[string]interface{}
 
+// GetTime returns the value associated with key as a time.Time.
 func (v Values) GetTime(key string) (time.Time, bool) {
 	val, ok := v[key]
 	if !ok {
 		return time.Time{}, false
-	}
-
-	if val == nil {
-		return time.Time{}, true
 	}
 
 	switch x := val.(type) {
@@ -25,6 +22,7 @@ func (v Values) GetTime(key string) (time.Time, bool) {
 	}
 }
 
+// GetBytes returns the value associated with key as a byte slice.
 func (v Values) GetBytes(key string) ([]byte, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -43,6 +41,7 @@ func (v Values) GetBytes(key string) ([]byte, bool) {
 	}
 }
 
+// GetBool returns the value associated with key as a boolean.
 func (v Values) GetBool(key string) (bool, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -57,6 +56,7 @@ func (v Values) GetBool(key string) (bool, bool) {
 	}
 }
 
+// GetFloat32 returns the value associated with key as a float32.
 func (v Values) GetFloat32(key string) (float32, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -71,6 +71,7 @@ func (v Values) GetFloat32(key string) (float32, bool) {
 	}
 }
 
+// GetFloat64 returns the value associated with key as a float64.
 func (v Values) GetFloat64(key string) (float64, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -85,6 +86,7 @@ func (v Values) GetFloat64(key string) (float64, bool) {
 	}
 }
 
+// GetInt returns the value associated with key as an int.
 func (v Values) GetInt(key string) (int, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -99,6 +101,7 @@ func (v Values) GetInt(key string) (int, bool) {
 	}
 }
 
+// GetInt8 returns the value associated with key as an int8.
 func (v Values) GetInt8(key string) (int8, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -113,6 +116,7 @@ func (v Values) GetInt8(key string) (int8, bool) {
 	}
 }
 
+// GetInt16 returns the value associated with key as an int16.
 func (v Values) GetInt16(key string) (int16, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -127,6 +131,7 @@ func (v Values) GetInt16(key string) (int16, bool) {
 	}
 }
 
+// GetInt32 returns the value associated with key as an int32.
 func (v Values) GetInt32(key string) (int32, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -141,6 +146,7 @@ func (v Values) GetInt32(key string) (int32, bool) {
 	}
 }
 
+// GetInt64 returns the value associated with key as an int64.
 func (v Values) GetInt64(key string) (int64, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -155,6 +161,7 @@ func (v Values) GetInt64(key string) (int64, bool) {
 	}
 }
 
+// GetUInt returns the value associated with key as an uint.
 func (v Values) GetUInt(key string) (uint, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -169,6 +176,7 @@ func (v Values) GetUInt(key string) (uint, bool) {
 	}
 }
 
+// GetUInt8 returns the value associated with key as an uint8.
 func (v Values) GetUInt8(key string) (uint8, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -183,6 +191,7 @@ func (v Values) GetUInt8(key string) (uint8, bool) {
 	}
 }
 
+// GetUInt16 returns the value associated with key as a uint16.
 func (v Values) GetUInt16(key string) (uint16, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -197,6 +206,7 @@ func (v Values) GetUInt16(key string) (uint16, bool) {
 	}
 }
 
+// GetUInt32 returns the value associated with key as an uint32.
 func (v Values) GetUInt32(key string) (uint32, bool) {
 	val, ok := v[key]
 	if !ok {
@@ -211,6 +221,7 @@ func (v Values) GetUInt32(key string) (uint32, bool) {
 	}
 }
 
+// GetUInt64 returns the value associated with key as an uint64.
 func (v Values) GetUInt64(key string) (uint64, bool) {
 	val, ok := v[key]
 	if !ok {
