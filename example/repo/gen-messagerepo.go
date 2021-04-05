@@ -5,6 +5,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/halimath/depot"
@@ -45,32 +46,32 @@ func (r *MessageRepo) fromValues(vals depot.Values) (*models.Message, error) {
 
 	id, ok := vals.GetString("id")
 	if !ok {
-		return nil, fmt.Errorf("failed to get id: invalid value: %#v", vals["id"])
+		return nil, fmt.Errorf("failed to get id for models.Message: invalid value: %#v", vals["id"])
 	}
 
 	text, ok := vals.GetString("text")
 	if !ok {
-		return nil, fmt.Errorf("failed to get text: invalid value: %#v", vals["text"])
+		return nil, fmt.Errorf("failed to get text for models.Message: invalid value: %#v", vals["text"])
 	}
 
 	orderindex, ok := vals.GetInt("order_index")
 	if !ok {
-		return nil, fmt.Errorf("failed to get order_index: invalid value: %#v", vals["order_index"])
+		return nil, fmt.Errorf("failed to get order_index for models.Message: invalid value: %#v", vals["order_index"])
 	}
 
 	length, ok := vals.GetFloat32("len")
 	if !ok {
-		return nil, fmt.Errorf("failed to get len: invalid value: %#v", vals["len"])
+		return nil, fmt.Errorf("failed to get len for models.Message: invalid value: %#v", vals["len"])
 	}
 
 	attachment, ok := vals.GetBytes("attachment")
 	if !ok {
-		return nil, fmt.Errorf("failed to get attachment: invalid value: %#v", vals["attachment"])
+		return nil, fmt.Errorf("failed to get attachment for models.Message: invalid value: %#v", vals["attachment"])
 	}
 
 	created, ok := vals.GetTime("created")
 	if !ok {
-		return nil, fmt.Errorf("failed to get created: invalid value: %#v", vals["created"])
+		return nil, fmt.Errorf("failed to get created for models.Message: invalid value: %#v", vals["created"])
 	}
 
 	return &models.Message{
@@ -87,6 +88,7 @@ func (r *MessageRepo) find(ctx context.Context, clauses ...depot.Clause) ([]*mod
 	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryMany(messageRepoCols, messageRepoTable, clauses...)
 	if err != nil {
+		err = fmt.Errorf("failed to load models.Message: %w", err)
 		session.Error(err)
 		return nil, err
 	}
@@ -106,6 +108,7 @@ func (r *MessageRepo) count(ctx context.Context, clauses ...depot.Clause) (int, 
 	session := depot.MustGetSession(ctx)
 	count, err := session.QueryCount(messageRepoTable, clauses...)
 	if err != nil {
+		err = fmt.Errorf("failed to count models.Message: %w", err)
 		session.Error(err)
 		return 0, err
 	}
@@ -117,7 +120,10 @@ func (r *MessageRepo) LoadByID(ctx context.Context, ID string) (*models.Message,
 	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryOne(messageRepoCols, messageRepoTable, depot.Where("id", ID))
 	if err != nil {
-		session.Error(err)
+		err = fmt.Errorf("failed to load models.Message by ID: %w", err)
+		if !errors.Is(err, depot.ErrNoResult) {
+			session.Error(err)
+		}
 		return nil, err
 	}
 	return r.fromValues(vals)
@@ -136,17 +142,29 @@ func (r *MessageRepo) toValues(entity *models.Message) depot.Values {
 
 func (r *MessageRepo) Insert(ctx context.Context, entity *models.Message) error {
 	session := depot.MustGetSession(ctx)
-	return session.InsertOne(messageRepoTable, r.toValues(entity))
+	err := session.InsertOne(messageRepoTable, r.toValues(entity))
+	if err != nil {
+		err = fmt.Errorf("failed to insert models.Message: %w", err)
+	}
+	return err
 }
 
 func (r *MessageRepo) delete(ctx context.Context, clauses ...depot.Clause) error {
 	session := depot.MustGetSession(ctx)
-	return session.DeleteMany(messageRepoTable, clauses...)
+	err := session.DeleteMany(messageRepoTable, clauses...)
+	if err != nil {
+		err = fmt.Errorf("failed to delete models.Message: %w", err)
+	}
+	return err
 }
 
 func (r *MessageRepo) Update(ctx context.Context, entity *models.Message) error {
 	session := depot.MustGetSession(ctx)
-	return session.UpdateMany(messageRepoTable, r.toValues(entity), depot.Where("id", entity.ID))
+	err := session.UpdateMany(messageRepoTable, r.toValues(entity), depot.Where("id", entity.ID))
+	if err != nil {
+		err = fmt.Errorf("failed to update models.Message: %w", err)
+	}
+	return err
 }
 
 func (r *MessageRepo) DeleteByID(ctx context.Context, ID string) error {

@@ -70,7 +70,7 @@ func (r *{{.Opts.RepoName}}) fromValues(vals depot.Values) (*{{.Opts.EntityName}
 	{{range .Mapping.Fields}}
 	{{toLower .Field}}, ok := vals.{{.ValuesGetterName}}("{{.Column}}")
 	if !ok {
-		return nil, fmt.Errorf("failed to get {{.Column}}: invalid value: %#v", vals["{{.Column}}"])
+		return nil, fmt.Errorf("failed to get {{.Column}} for {{$.Opts.EntityName}}: invalid value: %#v", vals["{{.Column}}"])
 	}
 	{{end}}
 	return &{{.Opts.EntityName}}{
@@ -83,6 +83,7 @@ func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...depot.Clause) 
 	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryMany({{lcFirst .Opts.RepoName}}Cols, {{lcFirst .Opts.RepoName}}Table, clauses...)
 	if err != nil {
+		err = fmt.Errorf("failed to load {{.Opts.EntityName}}: %w", err)
 		session.Error(err)
 		return nil, err
 	}
@@ -102,6 +103,7 @@ func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...depot.Clause)
 	session := depot.MustGetSession(ctx)
 	count, err := session.QueryCount({{lcFirst .Opts.RepoName}}Table, clauses...)
 	if err != nil {
+		err = fmt.Errorf("failed to count {{.Opts.EntityName}}: %w", err)
 		session.Error(err)
 		return 0, err
 	}
@@ -115,7 +117,10 @@ func (r *{{.Opts.RepoName}}) LoadBy{{$id.Field}}(ctx context.Context, {{$id.Fiel
 	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryOne({{lcFirst .Opts.RepoName}}Cols, {{lcFirst .Opts.RepoName}}Table, depot.Where("{{$id.Column}}", {{$id.Field}}))
 	if err != nil {
-		session.Error(err)
+		err = fmt.Errorf("failed to load {{.Opts.EntityName}} by {{$id.Field}}: %w", err)
+		if !errors.Is(err, depot.ErrNoResult) {
+			session.Error(err)
+		}
 		return nil, err
 	}
 	return r.fromValues(vals)
@@ -134,19 +139,31 @@ func (r *{{.Opts.RepoName}}) toValues(entity *{{.Opts.EntityName}}) depot.Values
 
 func (r *{{.Opts.RepoName}}) Insert(ctx context.Context, entity *{{.Opts.EntityName}}) error {
 	session := depot.MustGetSession(ctx)
-	return session.InsertOne({{lcFirst .Opts.RepoName}}Table, r.toValues(entity))
+	err := session.InsertOne({{lcFirst .Opts.RepoName}}Table, r.toValues(entity))
+	if err != nil {
+		err = fmt.Errorf("failed to insert {{.Opts.EntityName}}: %w", err)
+	}
+	return err
 }
 
 func (r *{{.Opts.RepoName}}) delete(ctx context.Context, clauses... depot.Clause) error {
 	session := depot.MustGetSession(ctx)
-	return session.DeleteMany({{lcFirst .Opts.RepoName}}Table, clauses...)
+	err := session.DeleteMany({{lcFirst .Opts.RepoName}}Table, clauses...)
+	if err != nil {
+		err = fmt.Errorf("failed to delete {{.Opts.EntityName}}: %w", err)
+	}
+	return err
 }
 
 {{if $id := .Mapping.ID}}
 
 func (r *{{.Opts.RepoName}}) Update(ctx context.Context, entity *{{.Opts.EntityName}}) error {
 	session := depot.MustGetSession(ctx)
-	return session.UpdateMany({{lcFirst .Opts.RepoName}}Table, r.toValues(entity), depot.Where("{{$id.Column}}", entity.{{$id.Field}}))
+	err := session.UpdateMany({{lcFirst .Opts.RepoName}}Table, r.toValues(entity), depot.Where("{{$id.Column}}", entity.{{$id.Field}}))
+	if err != nil {
+		err = fmt.Errorf("failed to update {{.Opts.EntityName}}: %w", err)
+	}
+	return err
 }
 
 func (r *{{.Opts.RepoName}}) DeleteBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type}}) error {
