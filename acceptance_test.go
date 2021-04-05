@@ -1,3 +1,17 @@
+// Copyright 2021 Alexander Metzner.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package depot
 
 import (
@@ -21,12 +35,12 @@ func TestPackage(t *testing.T) {
 	defer factory.Close()
 
 	ctx := context.Background()
-	session, _, err := factory.Session(ctx)
+	session, ctx, err := factory.Session(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := session.CommitIfNoError(); err != nil {
+		if err := session.Commit(); err != nil {
 			t.Fatal(err)
 		}
 	}()
@@ -100,17 +114,26 @@ func TestPackage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	msgs, err = session.QueryMany(cols, From("messages"), OrderBy("id", false))
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Now use a nested transaction
+	func() {
+		session, _, err := factory.Session(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer session.Commit()
 
-	if len(msgs) != 1 {
-		t.Errorf("expected 1 messages but got %d", len(msgs))
-	}
-	if msgs[0]["id"] != "1" {
-		t.Errorf("got unexpected first id: %s", msgs[0]["id"])
-	}
+		msgs, err = session.QueryMany(cols, From("messages"), OrderBy("id", false))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(msgs) != 1 {
+			t.Errorf("expected 1 messages but got %d", len(msgs))
+		}
+		if msgs[0]["id"] != "1" {
+			t.Errorf("got unexpected first id: %s", msgs[0]["id"])
+		}
+	}()
 }
 
 func prepareTestDB(t *testing.T) {

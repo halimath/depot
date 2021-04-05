@@ -1,3 +1,17 @@
+// Copyright 2021 Alexander Metzner.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package depot
 
 import (
@@ -12,9 +26,10 @@ var (
 	// ErrNoResult is returned when queries execpted to match (at least) on row
 	// match no row at all.
 	ErrNoResult = errors.New("no result")
-	// ErrMarkedForRollback is returned when trying to commit a Session which is
-	// already marked for rollback only.
-	ErrMarkedForRollback = errors.New("session has been marked for rollback")
+
+	// ErrRollback is returned when trying to commit a session that has already been
+	// rolled back.
+	ErrRollback = errors.New("rolled back")
 )
 
 // Session defines an interaction session with the database.
@@ -22,25 +37,39 @@ var (
 // Context. A session provides an abstract interface built around
 // Values and Clauses.
 type Session struct {
-	factory *Factory
-	tx      *sql.Tx
-	ctx     context.Context
-	err     error
+	txCount           int
+	tx                *sql.Tx
+	ctx               context.Context
+	err               error
+	alreadyRolledback bool
 }
 
 // Commit commits the session's transaction and returns an error
 // if the commit fails.
 func (s *Session) Commit() error {
 	if s.err != nil {
-		return ErrMarkedForRollback
+		return s.err
+	}
+	if s.txCount > 1 {
+		s.txCount--
+		return nil
 	}
 	return s.tx.Commit()
 }
 
 // Rollback rolls the session's transaction back and returns any
 // error raised during the rollback.
-func (s *Session) Rollback() error {
-	return s.tx.Rollback()
+func (s *Session) Rollback() (err error) {
+	if !s.alreadyRolledback {
+		err = s.tx.Rollback()
+	}
+
+	if s.txCount > 1 {
+		s.txCount--
+		s.err = ErrRollback
+	}
+
+	return err
 }
 
 // Error marks the transaction as failed so it cannot be committed
@@ -48,15 +77,6 @@ func (s *Session) Rollback() error {
 // Calling Error with a nil error clears the error state of the transaction.
 func (s *Session) Error(err error) {
 	s.err = err
-}
-
-// CommitIfNoError tries to commit the transaction but performs a
-// rollback in case an error has been logged before.
-func (s *Session) CommitIfNoError() error {
-	if s.err != nil {
-		return s.Rollback()
-	}
-	return s.Commit()
 }
 
 // QueryOne executes a query that is expected to return a single result.

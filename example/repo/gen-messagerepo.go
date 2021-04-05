@@ -32,12 +32,12 @@ func (r *MessageRepo) Begin(ctx context.Context) (context.Context, error) {
 }
 
 func (r *MessageRepo) Commit(ctx context.Context) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.Commit()
 }
 
 func (r *MessageRepo) Rollback(ctx context.Context) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.Rollback()
 }
 
@@ -84,7 +84,7 @@ func (r *MessageRepo) fromValues(vals depot.Values) (*models.Message, error) {
 }
 
 func (r *MessageRepo) find(ctx context.Context, clauses ...depot.Clause) ([]*models.Message, error) {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryMany(messageRepoCols, messageRepoTable, clauses...)
 	if err != nil {
 		session.Error(err)
@@ -103,7 +103,7 @@ func (r *MessageRepo) find(ctx context.Context, clauses ...depot.Clause) ([]*mod
 }
 
 func (r *MessageRepo) count(ctx context.Context, clauses ...depot.Clause) (int, error) {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	count, err := session.QueryCount(messageRepoTable, clauses...)
 	if err != nil {
 		session.Error(err)
@@ -114,7 +114,7 @@ func (r *MessageRepo) count(ctx context.Context, clauses ...depot.Clause) (int, 
 }
 
 func (r *MessageRepo) LoadByID(ctx context.Context, ID string) (*models.Message, error) {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryOne(messageRepoCols, messageRepoTable, depot.Where("id", ID))
 	if err != nil {
 		session.Error(err)
@@ -135,17 +135,17 @@ func (r *MessageRepo) toValues(entity *models.Message) depot.Values {
 }
 
 func (r *MessageRepo) Insert(ctx context.Context, entity *models.Message) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.InsertOne(messageRepoTable, r.toValues(entity))
 }
 
 func (r *MessageRepo) delete(ctx context.Context, clauses ...depot.Clause) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.DeleteMany(messageRepoTable, clauses...)
 }
 
 func (r *MessageRepo) Update(ctx context.Context, entity *models.Message) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.UpdateMany(messageRepoTable, r.toValues(entity), depot.Where("id", entity.ID))
 }
 

@@ -1,3 +1,17 @@
+// Copyright 2021 Alexander Metzner.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package generate implements code generation for repository types.
 package generate
 
@@ -43,12 +57,12 @@ func (r *{{.Opts.RepoName}}) Begin(ctx context.Context) (context.Context, error)
 }
 
 func (r *{{.Opts.RepoName}}) Commit(ctx context.Context) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.Commit()
 }
 
 func (r *{{.Opts.RepoName}}) Rollback(ctx context.Context) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.Rollback()
 }
 
@@ -66,7 +80,7 @@ func (r *{{.Opts.RepoName}}) fromValues(vals depot.Values) (*{{.Opts.EntityName}
 }
 
 func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...depot.Clause) ([]*{{.Opts.EntityName}}, error) {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryMany({{lcFirst .Opts.RepoName}}Cols, {{lcFirst .Opts.RepoName}}Table, clauses...)
 	if err != nil {
 		session.Error(err)
@@ -85,7 +99,7 @@ func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...depot.Clause) 
 }
 
 func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...depot.Clause) (int, error) {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	count, err := session.QueryCount({{lcFirst .Opts.RepoName}}Table, clauses...)
 	if err != nil {
 		session.Error(err)
@@ -98,7 +112,7 @@ func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...depot.Clause)
 {{if $id := .Mapping.ID}}
 
 func (r *{{.Opts.RepoName}}) LoadBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type}}) (*{{.Opts.EntityName}}, error) {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryOne({{lcFirst .Opts.RepoName}}Cols, {{lcFirst .Opts.RepoName}}Table, depot.Where("{{$id.Column}}", {{$id.Field}}))
 	if err != nil {
 		session.Error(err)
@@ -119,19 +133,19 @@ func (r *{{.Opts.RepoName}}) toValues(entity *{{.Opts.EntityName}}) depot.Values
 }
 
 func (r *{{.Opts.RepoName}}) Insert(ctx context.Context, entity *{{.Opts.EntityName}}) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.InsertOne({{lcFirst .Opts.RepoName}}Table, r.toValues(entity))
 }
 
 func (r *{{.Opts.RepoName}}) delete(ctx context.Context, clauses... depot.Clause) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.DeleteMany({{lcFirst .Opts.RepoName}}Table, clauses...)
 }
 
 {{if $id := .Mapping.ID}}
 
 func (r *{{.Opts.RepoName}}) Update(ctx context.Context, entity *{{.Opts.EntityName}}) error {
-	session := depot.GetSession(ctx)
+	session := depot.MustGetSession(ctx)
 	return session.UpdateMany({{lcFirst .Opts.RepoName}}Table, r.toValues(entity), depot.Where("{{$id.Column}}", entity.{{$id.Field}}))
 }
 
