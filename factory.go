@@ -25,26 +25,39 @@ type contextKeySessionType string
 // contextKeySession defines the value used as the key to store a Session in a Context.
 const contextKeySession contextKeySessionType = "session"
 
+// FactoryOptions defines the additional options for a Factory.
+type FactoryOptions struct {
+	// When set to true all SQL statements will be logged using the log package.
+	LogSQL bool
+}
+
 // Factory provides functions to create new Sessions.
 type Factory struct {
-	pool *sql.DB
+	pool    *sql.DB
+	options *FactoryOptions
 }
 
 // NewSessionFactory creates a new Factory using connections from
-// the given pool.
-func NewSessionFactory(pool *sql.DB) *Factory {
+// the given pool. When providing nil for the options, default options
+// are used.
+func NewSessionFactory(pool *sql.DB, options *FactoryOptions) *Factory {
+	if options == nil {
+		options = &FactoryOptions{}
+	}
+
 	return &Factory{
-		pool: pool,
+		pool:    pool,
+		options: options,
 	}
 }
 
 // Open opens a new database pool and wraps it as a SessionFactory.
-func Open(driver, dsn string) (*Factory, error) {
+func Open(driver, dsn string, options *FactoryOptions) (*Factory, error) {
 	pool, err := sql.Open(driver, dsn)
 	if err != nil {
 		return nil, err
 	}
-	return NewSessionFactory(pool), nil
+	return NewSessionFactory(pool, options), nil
 }
 
 // Close closes the factory and the underlying pool
@@ -66,6 +79,7 @@ func (f *Factory) Session(ctx context.Context) (*Session, context.Context, error
 	}
 
 	s := &Session{
+		options: f.options,
 		tx:      tx,
 		txCount: 1,
 		ctx:     ctx,

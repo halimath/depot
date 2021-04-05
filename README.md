@@ -36,7 +36,7 @@ sure you call one of these methods to finish the transaction.
 
 ```go
 
-factory := depot.Open("sqlite3", "./test.db")
+factory := depot.Open("sqlite3", "./test.db", nil)
 
 ctx := context.Background()
 session, ctx, err := factory.Session(ctx)

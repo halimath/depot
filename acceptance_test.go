@@ -28,7 +28,7 @@ func TestPackage(t *testing.T) {
 
 	cols := Cols("id", "text", "attachment")
 
-	factory, err := Open("sqlite3", "./test-package.db")
+	factory, err := Open("sqlite3", "./test-package.db", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

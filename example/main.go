@@ -33,7 +33,9 @@ import (
 func main() {
 	prepareDB()
 
-	factory, err := depot.Open("sqlite3", "./test.db")
+	factory, err := depot.Open("sqlite3", "./test.db", &depot.FactoryOptions{
+		LogSQL: true,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

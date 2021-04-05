@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -37,6 +38,7 @@ var (
 // Context. A session provides an abstract interface built around
 // Values and Clauses.
 type Session struct {
+	options           *FactoryOptions
 	txCount           int
 	tx                *sql.Tx
 	ctx               context.Context
@@ -87,6 +89,10 @@ func (s *Session) QueryOne(cols ColsClause, from TableClause, where ...Clause) (
 	whereClause, params := buildWhereClause(where...)
 	query := fmt.Sprintf("select %s from %s %s", cols.SQL(), from.SQL(), whereClause)
 
+	if s.options.LogSQL {
+		log.Printf("QueryOne: '%s'", query)
+	}
+
 	row := s.tx.QueryRowContext(s.ctx, query, params...)
 	values, err := collectValues(cols.Names(), row)
 	if err != nil {
@@ -105,6 +111,9 @@ func (s *Session) QueryMany(cols ColsClause, from TableClause, clauses ...Clause
 	whereClause, params := buildWhereClause(clauses...)
 	// TODO: limit, ...
 	query := fmt.Sprintf("select %s from %s %s %s", cols.SQL(), from.SQL(), whereClause, buildOrderByClause(clauses))
+	if s.options.LogSQL {
+		log.Printf("QueryMany: '%s'", query)
+	}
 
 	rows, err := s.tx.QueryContext(s.ctx, query, params...)
 	if err != nil {
@@ -128,6 +137,9 @@ func (s *Session) QueryMany(cols ColsClause, from TableClause, clauses ...Clause
 func (s *Session) QueryCount(from TableClause, clauses ...Clause) (count int, err error) {
 	whereClause, params := buildWhereClause(clauses...)
 	query := fmt.Sprintf("select count(*) from %s %s", from.SQL(), whereClause)
+	if s.options.LogSQL {
+		log.Printf("QueryCount: '%s'", query)
+	}
 
 	row := s.tx.QueryRowContext(s.ctx, query, params...)
 
@@ -173,6 +185,9 @@ func (s *Session) InsertOne(into TableClause, values Values) error {
 
 	insert.WriteString(")")
 	query := insert.String()
+	if s.options.LogSQL {
+		log.Printf("InsertOne: '%s'", query)
+	}
 
 	_, err := s.tx.Exec(query, args...)
 	if err != nil {
@@ -209,6 +224,9 @@ func (s *Session) UpdateMany(table TableClause, values Values, where ...Clause) 
 	copy(args[len(values):], whereArgs)
 
 	query := update.String()
+	if s.options.LogSQL {
+		log.Printf("UpdateMany: '%s'", query)
+	}
 
 	_, err := s.tx.Exec(query, args...)
 	if err != nil {
@@ -221,7 +239,11 @@ func (s *Session) UpdateMany(table TableClause, values Values, where ...Clause) 
 // DeleteMany deletes all matching rows from the database.
 func (s *Session) DeleteMany(from TableClause, where ...Clause) error {
 	whereClause, whereArgs := buildWhereClause(where...)
+
 	query := fmt.Sprintf("delete from %s %s", from.SQL(), whereClause)
+	if s.options.LogSQL {
+		log.Printf("DeleteMany: '%s'", query)
+	}
 
 	_, err := s.tx.Exec(query, whereArgs...)
 	if err != nil {
