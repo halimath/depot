@@ -69,6 +69,9 @@ func (s *StructMapping) ID() *FieldMapping {
 	return nil
 }
 
+// determineMapping determines the mapping for the named type typename by
+// scanning the source code found in source file named filename.
+// The function returns the fully usable mapping or an error.
 func determineMapping(filename string, typename string) (*StructMapping, error) {
 	fset := token.NewFileSet()
 	fileAst, err := parser.ParseFile(fset, filename, nil, parser.DeclarationErrors)
