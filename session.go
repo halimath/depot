@@ -150,6 +150,15 @@ func (s *Session) QueryCount(from TableClause, clauses ...Clause) (count int, er
 	return
 }
 
+// Exec executes the given query passing the given args and
+// returns the resulting error or nil.
+// This is just a wrapper for calling ExexContext on the wrapped
+// transaction.
+func (s *Session) Exec(query string, args ...interface{}) error {
+	_, err := s.tx.ExecContext(s.ctx, query, args...)
+	return err
+}
+
 // InsertOne inserts a single row.
 func (s *Session) InsertOne(into TableClause, values Values) error {
 	args := make([]interface{}, 0, len(values))
@@ -189,12 +198,7 @@ func (s *Session) InsertOne(into TableClause, values Values) error {
 		log.Printf("InsertOne: '%s'", query)
 	}
 
-	_, err := s.tx.Exec(query, args...)
-	if err != nil {
-		err = fmt.Errorf("failed to execute '%s': %w", query, err)
-	}
-	// TODO: What about the result?
-	return err
+	return s.Exec(query, args...)
 }
 
 // UpdateMany updates all matching rows with the same values given.
@@ -228,12 +232,7 @@ func (s *Session) UpdateMany(table TableClause, values Values, where ...Clause) 
 		log.Printf("UpdateMany: '%s'", query)
 	}
 
-	_, err := s.tx.Exec(query, args...)
-	if err != nil {
-		err = fmt.Errorf("failed to execute '%s': %w", query, err)
-	}
-	// TODO: What about the result?
-	return err
+	return s.Exec(query, args...)
 }
 
 // DeleteMany deletes all matching rows from the database.
@@ -245,11 +244,7 @@ func (s *Session) DeleteMany(from TableClause, where ...Clause) error {
 		log.Printf("DeleteMany: '%s'", query)
 	}
 
-	_, err := s.tx.Exec(query, whereArgs...)
-	if err != nil {
-		err = fmt.Errorf("failed to execute '%s': %w", query, err)
-	}
-	return err
+	return s.Exec(query, whereArgs...)
 }
 
 // captureScanner implements the sql package's Scanner interface and captures
