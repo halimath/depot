@@ -85,7 +85,7 @@ a column. Every field tagged with a `depot` tag will be part of the mapping. All
 ignored. 
 
 The column name is given as the tag's value. The field `ID` being used as the primary key is further
-marked with `id` separated by a comma.
+marked with `id` directive separated by a comma.
 
 To generate a repository for this model, invoke `depot` with the following command line:
 
@@ -148,6 +148,33 @@ func (r *MessageRepo) FindByText(ctx context.Context, text string) ([]*models.Me
 	return r.find(ctx, depot.Where("text", text))
 }
 ```
+
+### `null` values
+
+If a mapped field should support SQL `null` values, you have to add the `nullable` directive
+to the field's mapping tag:
+
+```go
+type Entity struct {
+	// ...
+	Foo *string `depot:"foo,nullable"`
+}
+```
+
+You can either use a pointer type as in the example above or the plain type (`string` in this case).
+Using a pointer is recommended, as SQL `null` values will be represented as `nil`. When using the
+plain type, `null` is represented with the value's default type (`""` in this case) which only
+works when reading `null` from the datase. If you wish to `insert` or `update` a `null` value
+you are required to use a pointer type.
+
+### List of directives
+
+The following table lists all supported directives for field mappings.
+
+Directive | Used for | Example | Description
+-- | -- | -- | --
+`id` | Mark a field as the entity's ID. | `ID string "depot:\"id,id\""` | Only a single field may be tagged with `id`. If one is given, the generated repo will contain the methods `LoadByID` and `DeleteByID` which are not generated when no ID is declared.
+`nullable` | Mark a field as being able to store a `null` value. | `Message *string "depot:\"msg,nullable\""` | See the section above for `null` values.
 
 See the [example app](./example) for a working example.
 

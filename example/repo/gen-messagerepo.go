@@ -7,13 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/halimath/depot"
 	"github.com/halimath/depot/example/models"
 )
 
 var (
-	messageRepoCols  = depot.Cols("id", "text", "order_index", "len", "attachment", "created")
+	messageRepoCols  = depot.Cols("id", "text", "order_index", "len", "attachment", "created", "updated")
 	messageRepoTable = depot.Table("messages")
 )
 
@@ -43,35 +44,68 @@ func (r *MessageRepo) Rollback(ctx context.Context) error {
 }
 
 func (r *MessageRepo) fromValues(vals depot.Values) (*models.Message, error) {
+	var ok bool
 
-	id, ok := vals.GetString("id")
+	var id string
+
+	id, ok = vals.GetString("id")
+
 	if !ok {
 		return nil, fmt.Errorf("failed to get id for models.Message: invalid value: %#v", vals["id"])
 	}
 
-	text, ok := vals.GetString("text")
+	var text string
+
+	text, ok = vals.GetString("text")
+
 	if !ok {
 		return nil, fmt.Errorf("failed to get text for models.Message: invalid value: %#v", vals["text"])
 	}
 
-	orderindex, ok := vals.GetInt("order_index")
+	var orderindex int
+
+	orderindex, ok = vals.GetInt("order_index")
+
 	if !ok {
 		return nil, fmt.Errorf("failed to get order_index for models.Message: invalid value: %#v", vals["order_index"])
 	}
 
-	length, ok := vals.GetFloat32("len")
+	var length float32
+
+	length, ok = vals.GetFloat32("len")
+
 	if !ok {
 		return nil, fmt.Errorf("failed to get len for models.Message: invalid value: %#v", vals["len"])
 	}
 
-	attachment, ok := vals.GetBytes("attachment")
+	var attachment []byte
+
+	attachment, ok = vals.GetBytes("attachment")
+
 	if !ok {
 		return nil, fmt.Errorf("failed to get attachment for models.Message: invalid value: %#v", vals["attachment"])
 	}
 
-	created, ok := vals.GetTime("created")
+	var created time.Time
+
+	created, ok = vals.GetTime("created")
+
 	if !ok {
 		return nil, fmt.Errorf("failed to get created for models.Message: invalid value: %#v", vals["created"])
+	}
+
+	var updated *time.Time
+
+	if !vals.IsNull("updated") {
+		if u, k := vals.GetTime("updated"); k {
+			updated = &u
+		} else {
+			ok = false
+		}
+	}
+
+	if !ok {
+		return nil, fmt.Errorf("failed to get updated for models.Message: invalid value: %#v", vals["updated"])
 	}
 
 	return &models.Message{
@@ -81,6 +115,7 @@ func (r *MessageRepo) fromValues(vals depot.Values) (*models.Message, error) {
 		Length:     length,
 		Attachment: attachment,
 		Created:    created,
+		Updated:    updated,
 	}, nil
 }
 
@@ -137,6 +172,7 @@ func (r *MessageRepo) toValues(entity *models.Message) depot.Values {
 		"len":         entity.Length,
 		"attachment":  entity.Attachment,
 		"created":     entity.Created,
+		"updated":     entity.Updated,
 	}
 }
 

@@ -12,12 +12,13 @@ func Test_detectMapping(t *testing.T) {
 		type (
 			// Message demonstrates a persistent struct showing several mapped fields.
 			Message struct {
-				ID         string    "depot:\"id,id\""
-				Text       string    "depot:\"text\""
-				OrderIndex int       "depot:\"order_index\""
-				Length     float32   "depot:\"len\""
-				Attachment []byte    "depot:\"attachment\""
-				Created    time.Time "depot:\"created\""
+				ID         string     "depot:\"id,id\""
+				Text       string     "depot:\"text\""
+				OrderIndex int        "depot:\"order_index\""
+				Length     float32    "depot:\"len\""
+				Attachment []byte     "depot:\"attachment\""
+				Created    time.Time  "depot:\"created\""
+				Updated	   *time.Time "depot:\"updated,nullable\""
 			}
 		)`, "Message")
 
@@ -32,7 +33,9 @@ func Test_detectMapping(t *testing.T) {
 			{
 				Field:  "ID",
 				Column: "id",
-				Type:   "string",
+				Type: &NamedType{
+					Name: "string",
+				},
 				Opts: FieldOptions{
 					ID: true,
 				},
@@ -40,27 +43,47 @@ func Test_detectMapping(t *testing.T) {
 			{
 				Field:  "Text",
 				Column: "text",
-				Type:   "string",
+				Type: &NamedType{
+					Name: "string",
+				},
 			},
 			{
 				Field:  "OrderIndex",
 				Column: "order_index",
-				Type:   "int",
+				Type: &NamedType{
+					Name: "int",
+				},
 			},
 			{
 				Field:  "Length",
 				Column: "len",
-				Type:   "float32",
+				Type: &NamedType{
+					Name: "float32",
+				},
 			},
 			{
 				Field:  "Attachment",
 				Column: "attachment",
-				Type:   "[]byte",
+				Type:   &ByteSlice{},
 			},
 			{
 				Field:  "Created",
 				Column: "created",
-				Type:   "time.Time",
+				Type: &NamedType{
+					Name: "time.Time",
+				},
+			},
+			{
+				Field:  "Updated",
+				Column: "updated",
+				Type: &PointerType{
+					NamedType: NamedType{
+						Name: "time.Time",
+					},
+				},
+				Opts: FieldOptions{
+					Nullable: true,
+				},
 			},
 		},
 	}

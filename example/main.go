@@ -94,7 +94,16 @@ func prepareDB() {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("create table messages (id varchar primary key, text varchar, order_index integer, len float, attachment blob, created timestamp)")
+	_, err = db.Exec(`
+create table messages (
+	id varchar primary key, 
+	text varchar not null, 
+	order_index integer not null, 
+	len float not null, 
+	attachment blob not null, 
+	created timestamp not null, 
+	updated timestamp
+)`)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -64,7 +64,7 @@ func detectMapping(filename string, src interface{}, typename string) (*StructMa
 					continue
 				}
 
-				t, err := typeString(f.Type)
+				t, err := resolveType(f.Type)
 				if err != nil {
 					resultErr = err
 					return false
@@ -96,25 +96,56 @@ func detectMapping(filename string, src interface{}, typename string) (*StructMa
 	return result, nil
 }
 
-func typeString(t ast.Expr) (string, error) {
+func resolveType(t ast.Expr) (Type, error) {
 	switch typ := t.(type) {
 	case *ast.Ident:
+		// Got a bare type name, such as string or int.
+		// Use that name directly.
 		// TODO: Restrict types to those supported by sql package, i.e. int, float, bool, ...
-		return typ.Name, nil
+		return &NamedType{Name: typ.Name}, nil
+
 	case *ast.ArrayType:
-		// TODO: Restrict type to be byte slice
+		// Got either an array (fixed length) or slice type (variable length).
+		// Check if no length is given as fixed length arrays are not supported.
 		if typ.Len != nil {
-			return "", fmt.Errorf("unsupported fixed length array: %#v", t)
+			return nil, fmt.Errorf("unsupported fixed length array: %#v", t)
 		}
-		t, err := typeString(typ.Elt)
-		return "[]" + t, err
+
+		// Make sure the underlying type is byte
+		if t, ok := typ.Elt.(*ast.Ident); !ok || t.Name != "byte" {
+			return nil, fmt.Errorf("only slice of %v is not support; only byte slices are supported", typ.Elt)
+		}
+
+		return &ByteSlice{}, nil
+
 	case *ast.SelectorExpr:
-		// TODO: Restrict type to be time.Time
-		// TODO: Alternatively, add support for embedded types
-		t, err := typeString(typ.X)
-		return t + "." + typ.Sel.Name, err
+		// Got a selector expression, such as time.Time.
+		// Currently, only time.Time is supported. Check, that
+		// the identifier is Time. Then we use time.Time for
+		// the repo.
+		if typ.Sel.Name != "Time" {
+			return nil, fmt.Errorf("%v is not supported as a type; only time.Time is allowed", typ)
+		}
+
+		return &NamedType{Name: "time.Time"}, nil
+
+	case *ast.StarExpr:
+		// Got a pointer type, such as *string.
+		// Resolve the pointed to type, which must be
+		// a named type.
+		t, err := resolveType(typ.X)
+		if err != nil {
+			return nil, err
+		}
+
+		if pt, ok := t.(*NamedType); ok {
+			return &PointerType{NamedType: *pt}, nil
+		}
+
+		return nil, fmt.Errorf("got unsupported pointer type: %v", typ)
+
 	default:
-		return "", fmt.Errorf("unsupported persistent field type: %#v", t)
+		return nil, fmt.Errorf("unsupported persistent field type: %#v", t)
 	}
 }
 
@@ -126,6 +157,17 @@ func parseTag(tag string, f *FieldMapping) (ok bool) {
 
 	parts := strings.Split(val, ",")
 	f.Column = parts[0]
+
+	for _, part := range parts[1:] {
+		switch strings.ToLower(part) {
+		case "id":
+			f.Opts.ID = true
+		case "nullable":
+			f.Opts.Nullable = true
+		default:
+			return false
+		}
+	}
 
 	if len(parts) > 1 && strings.ToLower(parts[1]) == "id" {
 		f.Opts.ID = true

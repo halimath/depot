@@ -15,34 +15,103 @@
 package generate
 
 import (
+	"fmt"
 	"strings"
 )
+
+// Type represents a mapped field's type. It provides
+// methods to generate code to interact with the field.
+type Type interface {
+	// Expr returns a string containing a Go expression to define
+	// a variable or parameter of this type.
+	Expr() string
+
+	// Returns a Go statement that obtains the column value from
+	// a depot.Values object and assigns it to a variable and a
+	// boolean flag indicating success.
+	AssignNonNil(assignVar, okVar, valuesExpr, columnExpr string) string
+}
+
+// --
+
+// NamedType is an implementation of Type which uses
+// a bare name to refer to a type, such as string, int
+// or time.Time.
+type NamedType struct {
+	Name string
+}
+
+var _ Type = &NamedType{}
+
+func (n *NamedType) Expr() string {
+	return n.Name
+}
+
+func (n *NamedType) AssignNonNil(assignVar, okVar, valuesExpr, columnExpr string) string {
+	return fmt.Sprintf("%s, %s = %s.%s(%s)", assignVar, okVar, valuesExpr, n.valuesGetterName(), columnExpr)
+}
+
+func (n *NamedType) valuesGetterName() string {
+	if n.Name == "time.Time" {
+		return "GetTime"
+	}
+
+	return "Get" + strings.ToUpper(n.Name[0:1]) + n.Name[1:]
+}
+
+// --
+
+// ByteSlice implements a Type that describes a slice of
+// bytes, i.e. []byte.
+type ByteSlice struct {
+}
+
+var _ Type = &ByteSlice{}
+
+func (b *ByteSlice) Expr() string {
+	return "[]byte"
+}
+
+func (b *ByteSlice) AssignNonNil(assignVar, okVar, valuesExpr, columnExpr string) string {
+	return fmt.Sprintf("%s, %s = %s.GetBytes(%s)", assignVar, okVar, valuesExpr, columnExpr)
+}
+
+// --
+
+type PointerType struct {
+	NamedType
+}
+
+var _ Type = &PointerType{}
+
+func (p *PointerType) Expr() string {
+	return "*" + p.NamedType.Expr()
+}
+
+func (p *PointerType) AssignNonNil(assignVar, okVar, valuesExpr, columnExpr string) string {
+	return fmt.Sprintf(`if %s; k {
+		%s = &u
+	} else {
+		%s = false
+	}`, strings.Replace(p.NamedType.AssignNonNil("u", "k", valuesExpr, columnExpr), "=", ":=", 1), assignVar, okVar)
+}
+
+// --
 
 // FieldMapping defines the mapping of a single struct field.
 type FieldMapping struct {
 	Field  string
 	Column string
-	Type   string
+	Type   Type
 	Opts   FieldOptions
-}
-
-// ValuesGetterName returns the name of the Values.Get* method
-// to invoke to obtain a value assignable to the target field.
-func (f *FieldMapping) ValuesGetterName() string {
-	if f.Type == "[]byte" {
-		return "GetBytes"
-	}
-
-	if f.Type == "time.Time" {
-		return "GetTime"
-	}
-
-	return "Get" + strings.ToUpper(f.Type[0:1]) + f.Type[1:]
 }
 
 // FieldOptions defines the additional options to be marked on field.s
 type FieldOptions struct {
+	// Flag indicating that this field is mapped to the primary key column
 	ID bool
+	// Flag indicating whether values mapped to this field can be null.
+	Nullable bool
 }
 
 // StructMapping defines how a single struct is mapped.

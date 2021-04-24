@@ -21,6 +21,11 @@ import "time"
 // entity's values in the database (either for insertion or update).
 type Values map[string]interface{}
 
+// IsNull returns true if the value store for key is the SQL value `NULL`.
+func (v Values) IsNull(key string) bool {
+	return v[key] == nil
+}
+
 // GetTime returns the value associated with key as a time.Time.
 func (v Values) GetTime(key string) (time.Time, bool) {
 	val, ok := v[key]

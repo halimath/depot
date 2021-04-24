@@ -70,11 +70,20 @@ func (r *{{.Opts.RepoName}}) Rollback(ctx context.Context) error {
 }
 
 func (r *{{.Opts.RepoName}}) fromValues(vals depot.Values) (*{{.Opts.EntityName}}, error) {
+	var ok bool
 	{{range .Mapping.Fields}}
-	{{toLower .Field}}, ok := vals.{{.ValuesGetterName}}("{{.Column}}")
-	if !ok {
-		return nil, fmt.Errorf("failed to get {{.Column}} for {{$.Opts.EntityName}}: invalid value: %#v", vals["{{.Column}}"])
-	}
+		var {{toLower .Field}} {{.Type.Expr}}
+		{{if .Opts.Nullable}}			
+			if !vals.IsNull("{{.Column}}") {
+				{{ .Type.AssignNonNil (toLower .Field) "ok" "vals" (printf "%q" .Column) }}				
+			}
+		{{else}}
+			{{ .Type.AssignNonNil (toLower .Field) "ok" "vals" (printf "%q" .Column) }}			
+		{{end}}
+		
+		if !ok {
+			return nil, fmt.Errorf("failed to get {{.Column}} for {{$.Opts.EntityName}}: invalid value: %#v", vals["{{.Column}}"])
+		}
 	{{end}}
 	return &{{.Opts.EntityName}}{
 		{{range .Mapping.Fields}}{{.Field}}: {{toLower .Field}},
@@ -116,7 +125,7 @@ func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...depot.Clause)
 
 {{if $id := .Mapping.ID}}
 
-	func (r *{{.Opts.RepoName}}) LoadBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type}}) (*{{.Opts.EntityName}}, error) {
+	func (r *{{.Opts.RepoName}}) LoadBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type.Expr}}) (*{{.Opts.EntityName}}, error) {
 		session := depot.MustGetSession(ctx)
 		vals, err := session.QueryOne({{lcFirst .Opts.RepoName}}Cols, {{lcFirst .Opts.RepoName}}Table, depot.Where("{{$id.Column}}", {{$id.Field}}))
 		if err != nil {
@@ -169,7 +178,7 @@ func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...depot.Clause)
 			return err
 		}
 
-		func (r *{{.Opts.RepoName}}) DeleteBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type}}) error {
+		func (r *{{.Opts.RepoName}}) DeleteBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type.Expr}}) error {
 			return r.delete(ctx, depot.Where("{{$id.Column}}", {{$id.Field}}))
 		}
 

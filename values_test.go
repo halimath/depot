@@ -27,6 +27,31 @@ type testDef struct {
 
 type getter func(v *Values, key string) (interface{}, bool)
 
+func TestValuesIsNull(t *testing.T) {
+	tests := []struct {
+		input    interface{}
+		expected bool
+	}{
+		{
+			input:    "",
+			expected: false,
+		},
+		{
+			input:    nil,
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		vals := make(Values)
+		vals["key"] = test.input
+		actual := vals.IsNull("key")
+		if actual != test.expected {
+			t.Errorf("%#v: exected IsNull to return %v but got %v", test.input, test.expected, actual)
+		}
+	}
+}
+
 func TestValuesGetString(t *testing.T) {
 	tests := []testDef{
 		{"foo", true, "foo"},
