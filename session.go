@@ -20,7 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
+
+	"github.com/halimath/depot/query"
 )
 
 var (
@@ -74,8 +75,7 @@ func (s *Session) Rollback() (err error) {
 	return err
 }
 
-// Error marks the transaction as failed so it cannot be committed
-// later on.
+// Error marks the transaction as failed so it cannot be committed later on.
 // Calling Error with a nil error clears the error state of the transaction.
 func (s *Session) Error(err error) {
 	s.err = err
@@ -85,15 +85,22 @@ func (s *Session) Error(err error) {
 // The columns, table and selection criteria are given as Clauses.
 // QueryOne returns the selected values which is never nil. ErrNoResult is
 // returned when the query did not match any rows.
-func (s *Session) QueryOne(cols ColsClause, from TableClause, where ...Clause) (Values, error) {
-	whereClause, params := buildWhereClause(where...)
-	query := fmt.Sprintf("select %s from %s %s", cols.SQL(), from.SQL(), whereClause)
+func (s *Session) QueryOne(cols *query.ColsClause, from *query.TableClause, where ...query.Clause) (Values, error) {
+	cb := s.options.Dialect.NewClauseBuilder()
+
+	cb.WriteString("select ")
+	cols.Write(cb)
+	cb.WriteString(" from ")
+	from.Write(cb)
+	buildWhereClause(cb, where)
+
+	query := cb.SQL()
 
 	if s.options.LogSQL {
 		log.Printf("QueryOne: '%s'", query)
 	}
 
-	row := s.tx.QueryRowContext(s.ctx, query, params...)
+	row := s.tx.QueryRowContext(s.ctx, query, cb.Args()...)
 	values, err := collectValues(cols.Names(), row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -107,15 +114,23 @@ func (s *Session) QueryOne(cols ColsClause, from TableClause, where ...Clause) (
 
 // QueryMany executes a query that is expected to match any number of rows. The rows are
 // returned as Values. If the query did not match any row an empty slice is returned.
-func (s *Session) QueryMany(cols ColsClause, from TableClause, clauses ...Clause) ([]Values, error) {
-	whereClause, params := buildWhereClause(clauses...)
+func (s *Session) QueryMany(cols *query.ColsClause, from *query.TableClause, clauses ...query.Clause) ([]Values, error) {
+	cb := s.options.Dialect.NewClauseBuilder()
+
+	cb.WriteString("select ")
+	cols.Write(cb)
+	cb.WriteString(" from ")
+	from.Write(cb)
+	buildWhereClause(cb, clauses)
+	buildOrderByClause(cb, clauses)
 	// TODO: limit, ...
-	query := fmt.Sprintf("select %s from %s %s %s", cols.SQL(), from.SQL(), whereClause, buildOrderByClause(clauses))
+
+	query := cb.SQL()
 	if s.options.LogSQL {
 		log.Printf("QueryMany: '%s'", query)
 	}
 
-	rows, err := s.tx.QueryContext(s.ctx, query, params...)
+	rows, err := s.tx.QueryContext(s.ctx, query, cb.Args()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
@@ -134,19 +149,25 @@ func (s *Session) QueryMany(cols ColsClause, from TableClause, clauses ...Clause
 }
 
 // QueryCount executes a counting query and returns the number of matching rows.
-func (s *Session) QueryCount(from TableClause, clauses ...Clause) (count int, err error) {
-	whereClause, params := buildWhereClause(clauses...)
-	query := fmt.Sprintf("select count(*) from %s %s", from.SQL(), whereClause)
+func (s *Session) QueryCount(from *query.TableClause, clauses ...query.Clause) (count int, err error) {
+	cb := s.options.Dialect.NewClauseBuilder()
+
+	cb.WriteString("select count(*) from ")
+	from.Write(cb)
+	buildWhereClause(cb, clauses)
+
+	query := cb.SQL()
 	if s.options.LogSQL {
 		log.Printf("QueryCount: '%s'", query)
 	}
 
-	row := s.tx.QueryRowContext(s.ctx, query, params...)
+	row := s.tx.QueryRowContext(s.ctx, query, cb.Args()...)
 
 	err = row.Scan(&count)
 	if err != nil {
 		err = fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
+
 	return
 }
 
@@ -160,91 +181,95 @@ func (s *Session) Exec(query string, args ...interface{}) error {
 }
 
 // InsertOne inserts a single row.
-func (s *Session) InsertOne(into TableClause, values Values) error {
-	args := make([]interface{}, 0, len(values))
+func (s *Session) InsertOne(into *query.TableClause, values Values) error {
+	cols := make([]string, 0, len(values))
+	colVals := make([]interface{}, 0, len(values))
 
-	var insert strings.Builder
-	insert.WriteString("insert into ")
-	insert.WriteString(into.SQL())
-	insert.WriteString(" (")
-
-	firstCol := true
-	for col, arg := range values {
-		if !firstCol {
-			insert.WriteString(", ")
-		} else {
-			firstCol = false
-		}
-		insert.WriteString(col)
-
-		args = append(args, arg)
+	for k, v := range values {
+		cols = append(cols, k)
+		colVals = append(colVals, v)
 	}
 
-	insert.WriteString(") values (")
+	cb := s.options.Dialect.NewClauseBuilder()
 
-	firstCol = true
-	for range values {
-		if !firstCol {
-			insert.WriteString(", ")
-		} else {
-			firstCol = false
+	cb.WriteString("insert into ")
+	into.Write(cb)
+	cb.WriteString(" (")
+
+	for i, col := range cols {
+		if i > 0 {
+			cb.WriteString(", ")
 		}
-		insert.WriteRune('?')
+		cb.WriteString(col)
 	}
 
-	insert.WriteString(")")
-	query := insert.String()
+	cb.WriteString(" ) values (")
+
+	for i, val := range colVals {
+		if i > 0 {
+			cb.WriteString(", ")
+		}
+		cb.BindParameter(val)
+	}
+
+	cb.WriteString(")")
+
+	query := cb.SQL()
 	if s.options.LogSQL {
 		log.Printf("InsertOne: '%s'", query)
 	}
 
-	return s.Exec(query, args...)
+	return s.Exec(query, cb.Args()...)
 }
 
 // UpdateMany updates all matching rows with the same values given.
-func (s *Session) UpdateMany(table TableClause, values Values, where ...Clause) error {
-	args := make([]interface{}, len(values)+len(where))
+func (s *Session) UpdateMany(table *query.TableClause, values Values, where ...query.Clause) error {
+	cb := s.options.Dialect.NewClauseBuilder()
 
-	var update strings.Builder
-	update.WriteString("update ")
-	update.WriteString(table.SQL())
-	update.WriteString(" set ")
+	cb.WriteString("update ")
+	table.Write(cb)
+	cb.WriteString(" set ")
 
-	count := 0
-	for col, arg := range values {
-		if count > 0 {
-			update.WriteString(", ")
+	first := true
+	for col, val := range values {
+		if first {
+			first = false
+		} else {
+			cb.WriteString(", ")
 		}
-		update.WriteString(col)
-		update.WriteString(" = ?")
 
-		args[count] = arg
-		count++
+		cb.WriteString(col)
+		cb.WriteString(" = ")
+		cb.BindParameter(val)
 	}
-	update.WriteRune(' ')
 
-	whereClause, whereArgs := buildWhereClause(where...)
-	update.WriteString(whereClause)
-	copy(args[len(values):], whereArgs)
-
-	query := update.String()
+	query := cb.SQL()
 	if s.options.LogSQL {
 		log.Printf("UpdateMany: '%s'", query)
 	}
 
-	return s.Exec(query, args...)
+	return s.Exec(query, cb.Args()...)
 }
 
 // DeleteMany deletes all matching rows from the database.
-func (s *Session) DeleteMany(from TableClause, where ...Clause) error {
-	whereClause, whereArgs := buildWhereClause(where...)
+func (s *Session) DeleteMany(from *query.TableClause, where ...query.WhereClause) error {
+	whereClauses := make([]query.Clause, len(where))
+	for i, w := range where {
+		whereClauses[i] = w
+	}
 
-	query := fmt.Sprintf("delete from %s %s", from.SQL(), whereClause)
+	cb := s.options.Dialect.NewClauseBuilder()
+
+	cb.WriteString("delete from ")
+	from.Write(cb)
+	buildWhereClause(cb, whereClauses)
+
+	query := cb.SQL()
 	if s.options.LogSQL {
 		log.Printf("DeleteMany: '%s'", query)
 	}
 
-	return s.Exec(query, whereArgs...)
+	return s.Exec(query, cb.Args()...)
 }
 
 // captureScanner implements the sql package's Scanner interface and captures
@@ -296,4 +321,37 @@ func collectValues(names []string, scanner Scanner) (Values, error) {
 	}
 
 	return values, nil
+}
+
+// buildWhereClause selects all where clauses from the given clauses writes them to cb.
+func buildWhereClause(cb query.Writer, clauses []query.Clause) {
+	var found bool
+
+	for _, c := range clauses {
+		if w, ok := c.(query.WhereClause); ok {
+			if !found {
+				cb.WriteString(" where ")
+				found = true
+			} else {
+				cb.WriteString(" and ")
+			}
+			w.Write(cb)
+		}
+	}
+}
+
+// buildOrderByClause selects all OrderByClauses and writes them to cb.
+func buildOrderByClause(cb query.Writer, clauses []query.Clause) {
+	first := true
+
+	for _, c := range clauses {
+		if w, ok := c.(*query.OrderByClause); ok {
+			if first {
+				cb.WriteString(" order by ")
+			} else {
+				cb.WriteString(", ")
+			}
+			w.Write(cb)
+		}
+	}
 }

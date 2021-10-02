@@ -12,22 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package repo
+package sqlite
 
-import (
-	"context"
+import "github.com/halimath/depot"
 
-	"github.com/halimath/depot"
-	"github.com/halimath/depot/example/models"
-	"github.com/halimath/depot/query"
-)
-
-func NewMessageRepo(factory *depot.Factory) *MessageRepo {
-	return &MessageRepo{
-		factory: factory,
-	}
-}
-
-func (r *MessageRepo) FindByText(ctx context.Context, text string) ([]*models.Message, error) {
-	return r.find(ctx, query.Where("text", text))
-}
+// Dialect provides a dialect for the SQLite3 database.
+type Dialect = depot.DefaultDialect

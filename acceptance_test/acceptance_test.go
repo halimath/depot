@@ -1,3 +1,17 @@
+// Copyright 2021 Alexander Metzner.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package acceptancetest
 
 import (
@@ -9,6 +23,9 @@ import (
 
 	"github.com/go-test/deep"
 	"github.com/halimath/depot"
+	"github.com/halimath/depot/engine/mysql"
+	"github.com/halimath/depot/engine/postgres"
+	"github.com/halimath/depot/engine/sqlite"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -54,11 +71,13 @@ create table messages (
 	}
 
 	t.Run("acceptance test", func(t *testing.T) {
-		runTest(t, db)
+		runTest(t, db, depot.FactoryOptions{
+			Dialect: &mysql.Dialect{},
+		})
 	})
 }
 
-func _TestPostgres(t *testing.T) {
+func TestPostgres(t *testing.T) {
 	db, _ := sql.Open("postgres", "host=localhost port=5432 user=user password=password dbname=test sslmode=disable")
 	defer db.Close()
 
@@ -82,7 +101,9 @@ create table messages (
 	}
 
 	t.Run("acceptance test", func(t *testing.T) {
-		runTest(t, db)
+		runTest(t, db, depot.FactoryOptions{
+			Dialect: &postgres.Dialect{},
+		})
 	})
 }
 
@@ -112,17 +133,19 @@ create table messages (
 	}
 
 	t.Run("acceptance test", func(t *testing.T) {
-		runTest(t, db)
+		runTest(t, db, depot.FactoryOptions{
+			Dialect: &sqlite.Dialect{},
+		})
 	})
 }
 
-func runTest(t *testing.T, pool *sql.DB) {
-	factory := depot.NewSessionFactory(pool, &depot.FactoryOptions{
-		LogSQL: true,
-	})
+func runTest(t *testing.T, pool *sql.DB, opts depot.FactoryOptions) {
+	factory := depot.NewSessionFactory(pool, opts)
 	defer factory.Close()
 
-	repo := NewMessageRepo(factory)
+	repo := &MessageRepo{
+		factory: factory,
+	}
 
 	ctx := context.Background()
 	ctx, err := repo.Begin(ctx)

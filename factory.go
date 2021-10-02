@@ -27,6 +27,9 @@ const contextKeySession contextKeySessionType = "session"
 
 // FactoryOptions defines the additional options for a Factory.
 type FactoryOptions struct {
+	// Dialect defines the SQL dialect to generate. If not set a default dialect will be used.
+	Dialect Dialect
+
 	// When set to true all SQL statements will be logged using the log package.
 	LogSQL bool
 }
@@ -34,15 +37,15 @@ type FactoryOptions struct {
 // Factory provides functions to create new Sessions.
 type Factory struct {
 	pool    *sql.DB
-	options *FactoryOptions
+	options FactoryOptions
 }
 
 // NewSessionFactory creates a new Factory using connections from
 // the given pool. When providing nil for the options, default options
 // are used.
-func NewSessionFactory(pool *sql.DB, options *FactoryOptions) *Factory {
-	if options == nil {
-		options = &FactoryOptions{}
+func NewSessionFactory(pool *sql.DB, options FactoryOptions) *Factory {
+	if options.Dialect == nil {
+		options.Dialect = &DefaultDialect{}
 	}
 
 	return &Factory{
@@ -52,7 +55,7 @@ func NewSessionFactory(pool *sql.DB, options *FactoryOptions) *Factory {
 }
 
 // Open opens a new database pool and wraps it as a SessionFactory.
-func Open(driver, dsn string, options *FactoryOptions) (*Factory, error) {
+func Open(driver, dsn string, options FactoryOptions) (*Factory, error) {
 	pool, err := sql.Open(driver, dsn)
 	if err != nil {
 		return nil, err
@@ -79,7 +82,7 @@ func (f *Factory) Session(ctx context.Context) (*Session, context.Context, error
 	}
 
 	s := &Session{
-		options: f.options,
+		options: &f.options,
 		tx:      tx,
 		txCount: 1,
 		ctx:     ctx,

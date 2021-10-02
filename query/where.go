@@ -12,12 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package depot
-
-import (
-	"fmt"
-	"strings"
-)
+package query
 
 // WhereClause defines the interface implemented by all
 // clauses that contribute a "where" condition.
@@ -31,15 +26,15 @@ type WhereClause interface {
 type operatorWhereClause struct {
 	column   string
 	operator string
-	args     []interface{}
+	arg      interface{}
 }
 
-func (c *operatorWhereClause) SQL() string {
-	return fmt.Sprintf("%s %s ?", c.column, c.operator)
-}
-
-func (c *operatorWhereClause) Args() []interface{} {
-	return c.args
+func (c *operatorWhereClause) Write(w Writer) {
+	w.WriteString(c.column)
+	w.WriteRune(' ')
+	w.WriteString(c.operator)
+	w.WriteRune(' ')
+	w.BindParameter(c.arg)
 }
 
 func (c *operatorWhereClause) where() {}
@@ -56,7 +51,7 @@ func EQ(column string, value interface{}) WhereClause {
 	return &operatorWhereClause{
 		column:   column,
 		operator: "=",
-		args:     []interface{}{value},
+		arg:      value,
 	}
 }
 
@@ -65,7 +60,7 @@ func GT(column string, value interface{}) WhereClause {
 	return &operatorWhereClause{
 		column:   column,
 		operator: ">",
-		args:     []interface{}{value},
+		arg:      value,
 	}
 }
 
@@ -74,7 +69,7 @@ func GE(column string, value interface{}) WhereClause {
 	return &operatorWhereClause{
 		column:   column,
 		operator: ">=",
-		args:     []interface{}{value},
+		arg:      value,
 	}
 }
 
@@ -83,7 +78,7 @@ func LT(column string, value interface{}) WhereClause {
 	return &operatorWhereClause{
 		column:   column,
 		operator: "<",
-		args:     []interface{}{value},
+		arg:      value,
 	}
 }
 
@@ -92,7 +87,7 @@ func LE(column string, value interface{}) WhereClause {
 	return &operatorWhereClause{
 		column:   column,
 		operator: "<=",
-		args:     []interface{}{value},
+		arg:      value,
 	}
 }
 
@@ -102,29 +97,19 @@ type inClause struct {
 	values []interface{}
 }
 
-func (c *inClause) SQL() string {
-	var s strings.Builder
-	s.WriteString(c.column)
-	s.WriteString(" in (")
+func (c *inClause) Write(w Writer) {
+	w.WriteString(c.column)
+	w.WriteString(" in (")
 
-	first := true
-	for range c.values {
-		if !first {
-			s.WriteString(", ")
-		} else {
-			first = false
+	for i, v := range c.values {
+		if i > 0 {
+			w.WriteString(", ")
 		}
 
-		s.WriteRune('?')
+		w.BindParameter(v)
 	}
 
-	s.WriteRune(')')
-
-	return s.String()
-}
-
-func (c *inClause) Args() []interface{} {
-	return c.values
+	w.WriteRune(')')
 }
 
 func (c *inClause) where() {}
@@ -137,64 +122,30 @@ func In(column string, values ...interface{}) WhereClause {
 	}
 }
 
-// buildWhereClause selects all where clauses from the given clauses
-// and joins them together with AND. If the result contains at least
-// one clause, the keyword `where` is put in front. The function also
-// returns the collected arguments.
-func buildWhereClause(clauses ...Clause) (string, []interface{}) {
-	var b strings.Builder
-	args := make([]interface{}, 0, len(clauses))
-
-	for _, clause := range clauses {
-		if w, ok := clause.(WhereClause); ok {
-			if b.Len() > 0 {
-				b.WriteString(" and ")
-			}
-			b.WriteString(w.SQL())
-			args = append(args, w.Args()...)
-		}
-	}
-
-	if b.Len() > 0 {
-		return fmt.Sprintf("where %s", b.String()), args
-	}
-
-	return b.String(), args
-}
-
 // --
 
-// OrderByClause defines the interface used to sort rows.
-type OrderByClause interface {
-	Clause
-	orderBy()
-}
-
-type orderByClause struct {
+// OrderByClause defines an order by clause.
+type OrderByClause struct {
 	column string
 	asc    bool
 }
 
-func (c *orderByClause) SQL() string {
-	direction := "asc"
-	if !c.asc {
-		direction = "desc"
+func (c *OrderByClause) Write(w Writer) {
+	w.WriteString(c.column)
+	w.WriteRune(' ')
+
+	if c.asc {
+		w.WriteString("asc")
+	} else {
+		w.WriteString("desc")
 	}
-
-	return fmt.Sprintf("%s %s", c.column, direction)
 }
 
-func (c *orderByClause) Args() []interface{} {
-	return nil
-}
-
-func (c *orderByClause) orderBy() {}
-
-var _ OrderByClause = &orderByClause{}
+var _ Clause = &OrderByClause{}
 
 // OrderBy constructs a new OrderByClause.
-func OrderBy(column string, asc bool) OrderByClause {
-	return &orderByClause{
+func OrderBy(column string, asc bool) *OrderByClause {
+	return &OrderByClause{
 		column: column,
 		asc:    asc,
 	}
@@ -202,33 +153,12 @@ func OrderBy(column string, asc bool) OrderByClause {
 
 // Asc returns an OrderByClause sorting by the given column in
 // ascending order.
-func Asc(column string) OrderByClause {
+func Asc(column string) *OrderByClause {
 	return OrderBy(column, true)
 }
 
 // Desc returns an OrderByClause sorting by the given column in
 // descending order.
-func Desc(column string) OrderByClause {
+func Desc(column string) *OrderByClause {
 	return OrderBy(column, false)
-}
-
-// buildOrderByClause selects all OrderByClauses and joins them together.
-// If at least on clause is selected, the keyphrase `order by` is put in front.
-func buildOrderByClause(clauses []Clause) string {
-	var b strings.Builder
-
-	for _, clause := range clauses {
-		if w, ok := clause.(OrderByClause); ok {
-			if b.Len() > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(w.SQL())
-		}
-	}
-
-	if b.Len() > 0 {
-		return fmt.Sprintf("order by %s", b.String())
-	}
-
-	return b.String()
 }
