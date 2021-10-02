@@ -85,6 +85,8 @@ func (v Values) GetFloat32(key string) (float32, bool) {
 	}
 
 	switch x := val.(type) {
+	case float32:
+		return x, ok
 	case float64:
 		return float32(x), ok
 	default:
