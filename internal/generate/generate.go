@@ -23,19 +23,20 @@ import (
 type Options struct {
 	// Name of the go file containing the entity definition.
 	Filename string
+
 	// Name of the type (as declared in the given file) to detect mappings for,
 	EntityName string
-	// Optional name of the table to map the entity to.
-	// Defaults to a SQL converted name of the entity.
+
+	// Optional name of the table to map the entity to. Defaults to a SQL converted name of the entity.
 	TableName string
-	// Optional name of the go package containing the generated repo.
-	// Defaults to the entity's package name.
+
+	// Optional name of the go package containing the generated repo. Defaults to the entity's package name.
 	RepoPackage string
-	// Optional name of the repo type.
-	// Defaults to the entity name with a `Repo` suffix.
+
+	// Optional name of the repo type. Defaults to the entity name with a `Repo` suffix.
 	RepoName string
-	// Flag indicating if the repo should only provide finder
-	// methods and do not support modifications.
+
+	// Flag indicating if the repo should only provide finder methods and do not support modifications.
 	ReadOnly bool
 }
 

@@ -63,8 +63,7 @@ func (n *NamedType) valuesGetterName() string {
 
 // ByteSlice implements a Type that describes a slice of
 // bytes, i.e. []byte.
-type ByteSlice struct {
-}
+type ByteSlice struct{}
 
 var _ Type = &ByteSlice{}
 
