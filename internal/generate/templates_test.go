@@ -95,7 +95,7 @@ func Test_generateRepo(t *testing.T) {
 	}
 
 	if expectedRepoSrc != string(actual) {
-		t.Errorf("expected sources do not match: %s", actual)
+		t.Errorf("expected sources do not match\n%s\n%s\n", actual, expectedRepoSrc)
 	}
 }
 
@@ -112,11 +112,12 @@ import (
 	"time"
 
 	"github.com/halimath/depot"
+	"github.com/halimath/depot/query"
 )
 
 var (
-	messageRepoCols  = depot.Cols("id", "text", "order_index", "len", "attachment", "created", "updated")
-	messageRepoTable = depot.Table("messages")
+	messageRepoCols  = query.Cols("id", "text", "order_index", "len", "attachment", "created", "updated")
+	messageRepoTable = query.Table("messages")
 )
 
 type MessageRepo struct {
@@ -214,7 +215,7 @@ func (r *MessageRepo) fromValues(vals depot.Values) (*Message, error) {
 	}, nil
 }
 
-func (r *MessageRepo) find(ctx context.Context, clauses ...depot.Clause) ([]*Message, error) {
+func (r *MessageRepo) find(ctx context.Context, clauses ...query.Clause) ([]*Message, error) {
 	session := depot.MustGetSession(ctx)
 	vals, err := session.QueryMany(messageRepoCols, messageRepoTable, clauses...)
 	if err != nil {
@@ -234,7 +235,7 @@ func (r *MessageRepo) find(ctx context.Context, clauses ...depot.Clause) ([]*Mes
 	return res, nil
 }
 
-func (r *MessageRepo) count(ctx context.Context, clauses ...depot.Clause) (int, error) {
+func (r *MessageRepo) count(ctx context.Context, clauses ...query.WhereClause) (int, error) {
 	session := depot.MustGetSession(ctx)
 	count, err := session.QueryCount(messageRepoTable, clauses...)
 	if err != nil {
@@ -248,7 +249,7 @@ func (r *MessageRepo) count(ctx context.Context, clauses ...depot.Clause) (int, 
 
 func (r *MessageRepo) LoadByID(ctx context.Context, ID string) (*Message, error) {
 	session := depot.MustGetSession(ctx)
-	vals, err := session.QueryOne(messageRepoCols, messageRepoTable, depot.Where("id", ID))
+	vals, err := session.QueryOne(messageRepoCols, messageRepoTable, query.Where("id", ID))
 	if err != nil {
 		err = fmt.Errorf("failed to load Message by ID: %w", err)
 		if !errors.Is(err, depot.ErrNoResult) {
@@ -280,7 +281,7 @@ func (r *MessageRepo) Insert(ctx context.Context, entity *Message) error {
 	return err
 }
 
-func (r *MessageRepo) delete(ctx context.Context, clauses ...depot.Clause) error {
+func (r *MessageRepo) delete(ctx context.Context, clauses ...query.WhereClause) error {
 	session := depot.MustGetSession(ctx)
 	err := session.DeleteMany(messageRepoTable, clauses...)
 	if err != nil {
@@ -291,7 +292,7 @@ func (r *MessageRepo) delete(ctx context.Context, clauses ...depot.Clause) error
 
 func (r *MessageRepo) Update(ctx context.Context, entity *Message) error {
 	session := depot.MustGetSession(ctx)
-	err := session.UpdateMany(messageRepoTable, r.toValues(entity), depot.Where("id", entity.ID))
+	err := session.UpdateMany(messageRepoTable, r.toValues(entity), query.Where("id", entity.ID))
 	if err != nil {
 		err = fmt.Errorf("failed to update Message: %w", err)
 	}
@@ -299,11 +300,11 @@ func (r *MessageRepo) Update(ctx context.Context, entity *Message) error {
 }
 
 func (r *MessageRepo) DeleteByID(ctx context.Context, ID string) error {
-	return r.delete(ctx, depot.Where("id", ID))
+	return r.delete(ctx, query.Where("id", ID))
 }
 
 func (r *MessageRepo) Delete(ctx context.Context, entity *Message) error {
-	return r.delete(ctx, depot.Where("id", entity.ID))
+	return r.delete(ctx, query.Where("id", entity.ID))
 }
 `
 )

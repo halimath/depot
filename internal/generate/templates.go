@@ -106,7 +106,7 @@ func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...query.Clause) 
 	return res, nil
 }
 
-func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...query.Clause) (int, error) {
+func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...query.WhereClause) (int, error) {
 	session := depot.MustGetSession(ctx)
 	count, err := session.QueryCount({{lcFirst .Opts.RepoName}}Table, clauses...)
 	if err != nil {
