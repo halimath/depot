@@ -15,7 +15,7 @@
 // Package models contains the model definitions.
 package models
 
-//go:generate depot generate-repo --table=messages --repo-package repo --out ../repo/gen-messagerepo.go $GOFILE Message
+//go:generate depot generate-repo --table=messages --repo-package repo --out ../repo/messagerepo_gen.go $GOFILE Message
 
 import "time"
 
