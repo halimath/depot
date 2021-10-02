@@ -1,12 +1,16 @@
 # depot
 
-![CI Status][ci-img-url] [![Go Report Card][go-report-card-img-url]][go-report-card-url] [![Package Doc][package-doc-img-url]][package-doc-url] [![Releases][release-img-url]][release-url]
+![CI Status][ci-img-url] 
+[![Go Report Card][go-report-card-img-url]][go-report-card-url] 
+[![Package Doc][package-doc-img-url]][package-doc-url] 
+[![Releases][release-img-url]][release-url]
 
-`depot` is a thin abstraction layer for accessing relational databases using Golang (technically, 
-the concepts used by `depot` should be applicable to other databases as well).
+`depot` is a thin abstraction layer for accessing relational databases using Golang. In addition, `depot`
+provides a code generator which generates object-relational mappings (ORM) and repository types that easily
+map Go types (most notably `struct`s) to database tables and vice versa.
 
-`depot` is implemented to provide a more convenient API to applications while stil remaining
-what I consider to be _idiomatic go_.
+`depot` is implemented to provide a more convenient API to applications while stil remaining what I consider
+to be _idiomatic go_.
 
 **`depot` is under heavy development and _not_ ready for production systems.**
 
@@ -16,23 +20,30 @@ what I consider to be _idiomatic go_.
 
 ## Installation
 
+To use the module, run
+
 ```
 $ go get github.com/halimath/depot
 ```
 
+To also use the code generator, run
+
+```
+$ go install github.com/halimath/depot/cmd/depot
+```
+
 ## API
 
-The fundamental type to interact with `depot` is the `Session`. A `Session` is bound
-to a `Context` and wraps a database transaction. To obtain a session, you use a 
-`SessionFactory` which in turn wraps a `sql.DB`. You may create a `SessionFactory`
-either by calling the `depot.Open` function passing in the same arguments you would
-pass to `sql.Open`, or you create a `sql.DB` value yourself (i.e. if you want to 
+The fundamental type to interact with `depot` is the `Session`. A `Session` is bound to a `Context` and  
+wraps a database transaction. To obtain a session, you use a `SessionFactory` which in turn wraps a 
+`sql.DB`. You may create a `SessionFactory` either by calling the `depot.Open` function passing in the same 
+arguments you would pass to `sql.Open`, or you create a `sql.DB` value yourself (i.e. if you want to 
 configure connection pooling) and pass this to `depot.NewSessionFactory`.
 
 Once you have a factory, call its `Session` method to create a session.
 
-The `Session` provides methods to commit or rollback the wrapped transaction. Make
-sure you call one of these methods to finish the transaction.
+The `Session` provides methods to commit or rollback the wrapped transaction. Make sure you call one of these 
+methods to finish the transaction.
 
 ```go
 
@@ -54,7 +65,8 @@ if err := session.CommitIfNoError(); err != nil {
 }
 ```
 
-See [`acceptance-test.go`](./acceptance-test.go) for an almost complete API example.
+See [`depot_test.go`](./depot_test.go) for an almost complete API example. In addition, you may look at
+the [`example`](./example) which uses the code generator.
 
 ## Code Generator
 
@@ -125,23 +137,26 @@ func (r *MessageRepo) DeleteByID(ctx context.Context, ID string) error
 func (r *MessageRepo) Delete(ctx context.Context, entity *models.Message) error
 ```
 
-Use `Begin`, `Commit` and `Rollback` to control the transaction scope. The transaction is
-stored as part of the `Context`. Under the hood all of the methods use the `Session` described
-above.
+_Note that no public method uses a parameter or return type exported from `depot`. This means that a generated
+repository's public interface does not expose the use of `depot`. This allows the interface to be used in
+architecture styles (such as _clean architecture_ or _ports and adapters_) that require the business types
+to have no dependency to a persistence framework._
 
-`find` and `count` are methods that can be used by custom finder methods. They execute `select`
-queries for the entity. `LoadByID` uses `find` to load a single message by `ID`.
+Use `Begin`, `Commit` and `Rollback` to control the transaction scope. The transaction is stored as part of 
+the `Context`. Under the hood all of the methods use the `Session` described above.
 
-The mutation methods all handle single instances of `Message`. `delete` is provided similar to
-`find` to do batch deletes.
+`find` and `count` are methods that can be used by custom finder methods. They execute `select` queries for 
+the entity. `LoadByID` uses `find` to load a single message by `ID`.
 
-Note that all of these methods contain simple to read and debug go code with no reflection
-being used at all. The code is idiomatic and in most cases looks like being written by
-a human go programmer.
+The mutation methods all handle single instances of `Message`. `delete` is provided similar to `find` to do 
+batch deletes.
 
-You can easily extend the repo with custom finder methods by writing a custom method being
-part of `MessageRepo` to another non-generated file and use `find` to do the actual work.
-Here is an example for a method to load `Message`s based on the value of the `Text` field.
+Note that all of these methods contain simple to read and debug go code with no reflection being used at all.
+The code is idiomatic and in most cases looks like being written by a human go programmer.
+
+You can easily extend the repo with custom finder methods by writing a custom method being part of 
+`MessageRepo` to another non-generated file and use `find` to do the actual work. Here is an example for a
+method to load `Message`s based on the value of the `Text` field.
 
 ```go
 func (r *MessageRepo) FindByText(ctx context.Context, text string) ([]*models.Message, error) {
