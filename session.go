@@ -149,12 +149,17 @@ func (s *Session) QueryMany(cols *query.ColsClause, from *query.TableClause, cla
 }
 
 // QueryCount executes a counting query and returns the number of matching rows.
-func (s *Session) QueryCount(from *query.TableClause, clauses ...query.Clause) (count int, err error) {
+func (s *Session) QueryCount(from *query.TableClause, where ...query.WhereClause) (count int, err error) {
+	whereClauses := make([]query.Clause, len(where))
+	for i, w := range where {
+		whereClauses[i] = w
+	}
+
 	cb := s.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select count(*) from ")
 	from.Write(cb)
-	buildWhereClause(cb, clauses)
+	buildWhereClause(cb, whereClauses)
 
 	query := cb.SQL()
 	if s.options.LogSQL {
