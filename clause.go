@@ -16,8 +16,7 @@ package depot
 
 import "strings"
 
-// Clause defines the interface implemented by all clauses used
-// to describe different parts of a query.
+// Clause defines the interface implemented by all clauses used to describe different parts of a query.
 // A clause captures optional arguments.
 type Clause interface {
 	// SQL returns the SQL query part expressed by this clause.
