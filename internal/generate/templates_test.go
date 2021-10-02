@@ -109,12 +109,6 @@ type MessageRepo struct {
 	factory *depot.Factory
 }
 
-func NewMessageRepo(factory *depot.Factory) *MessageRepo {
-	return &MessageRepo{
-		factory: factory,
-	}
-}
-
 func (r *MessageRepo) Begin(ctx context.Context) (context.Context, error) {
 	_, ctx, err := r.factory.Session(ctx)
 	return ctx, err

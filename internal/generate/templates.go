@@ -48,12 +48,6 @@ type {{.Opts.RepoName}} struct {
 	factory *depot.Factory
 }
 
-func New{{.Opts.RepoName}} (factory *depot.Factory) *{{.Opts.RepoName}} {
-	return &{{.Opts.RepoName}}{
-		factory: factory,
-	}
-}
-
 func (r *{{.Opts.RepoName}}) Begin(ctx context.Context) (context.Context, error) {
 	_, ctx, err := r.factory.Session(ctx)
 	return ctx, err
