@@ -134,7 +134,7 @@ func (r *MessageRepo) find(ctx context.Context, clauses ...query.Clause) ([]*mod
 	return res, nil
 }
 
-func (r *MessageRepo) count(ctx context.Context, clauses ...query.Clause) (int, error) {
+func (r *MessageRepo) count(ctx context.Context, clauses ...query.WhereClause) (int, error) {
 	session := depot.MustGetSession(ctx)
 	count, err := session.QueryCount(messageRepoTable, clauses...)
 	if err != nil {
