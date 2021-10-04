@@ -19,22 +19,22 @@ var (
 )
 
 type MessageRepo struct {
-	factory *depot.Factory
+	db *depot.DB
 }
 
 func (r *MessageRepo) Begin(ctx context.Context) (context.Context, error) {
-	_, ctx, err := r.factory.Session(ctx)
+	_, ctx, err := r.db.BeginTx(ctx)
 	return ctx, err
 }
 
 func (r *MessageRepo) Commit(ctx context.Context) error {
-	session := depot.MustGetSession(ctx)
-	return session.Commit()
+	tx := depot.MustGetTx(ctx)
+	return tx.Commit()
 }
 
 func (r *MessageRepo) Rollback(ctx context.Context) error {
-	session := depot.MustGetSession(ctx)
-	return session.Rollback()
+	tx := depot.MustGetTx(ctx)
+	return tx.Rollback()
 }
 
 func (r *MessageRepo) fromValues(vals depot.Values) (*Message, error) {
@@ -114,11 +114,11 @@ func (r *MessageRepo) fromValues(vals depot.Values) (*Message, error) {
 }
 
 func (r *MessageRepo) find(ctx context.Context, clauses ...query.Clause) ([]*Message, error) {
-	session := depot.MustGetSession(ctx)
-	vals, err := session.QueryMany(messageRepoCols, messageRepoTable, clauses...)
+	tx := depot.MustGetTx(ctx)
+	vals, err := tx.QueryMany(messageRepoCols, messageRepoTable, clauses...)
 	if err != nil {
 		err = fmt.Errorf("failed to load Message: %w", err)
-		session.Error(err)
+		tx.Error(err)
 		return nil, err
 	}
 
@@ -134,11 +134,11 @@ func (r *MessageRepo) find(ctx context.Context, clauses ...query.Clause) ([]*Mes
 }
 
 func (r *MessageRepo) count(ctx context.Context, clauses ...query.WhereClause) (int, error) {
-	session := depot.MustGetSession(ctx)
-	count, err := session.QueryCount(messageRepoTable, clauses...)
+	tx := depot.MustGetTx(ctx)
+	count, err := tx.QueryCount(messageRepoTable, clauses...)
 	if err != nil {
 		err = fmt.Errorf("failed to count Message: %w", err)
-		session.Error(err)
+		tx.Error(err)
 		return 0, err
 	}
 
@@ -146,12 +146,12 @@ func (r *MessageRepo) count(ctx context.Context, clauses ...query.WhereClause) (
 }
 
 func (r *MessageRepo) LoadByID(ctx context.Context, ID string) (*Message, error) {
-	session := depot.MustGetSession(ctx)
-	vals, err := session.QueryOne(messageRepoCols, messageRepoTable, query.Where("id", ID))
+	tx := depot.MustGetTx(ctx)
+	vals, err := tx.QueryOne(messageRepoCols, messageRepoTable, query.Where("id", ID))
 	if err != nil {
 		err = fmt.Errorf("failed to load Message by ID: %w", err)
 		if !errors.Is(err, depot.ErrNoResult) {
-			session.Error(err)
+			tx.Error(err)
 		}
 		return nil, err
 	}
@@ -171,8 +171,8 @@ func (r *MessageRepo) toValues(entity *Message) depot.Values {
 }
 
 func (r *MessageRepo) Insert(ctx context.Context, entity *Message) error {
-	session := depot.MustGetSession(ctx)
-	err := session.InsertOne(messageRepoTable, r.toValues(entity))
+	tx := depot.MustGetTx(ctx)
+	err := tx.InsertOne(messageRepoTable, r.toValues(entity))
 	if err != nil {
 		err = fmt.Errorf("failed to insert Message: %w", err)
 	}
@@ -180,8 +180,8 @@ func (r *MessageRepo) Insert(ctx context.Context, entity *Message) error {
 }
 
 func (r *MessageRepo) delete(ctx context.Context, clauses ...query.WhereClause) error {
-	session := depot.MustGetSession(ctx)
-	err := session.DeleteMany(messageRepoTable, clauses...)
+	tx := depot.MustGetTx(ctx)
+	err := tx.DeleteMany(messageRepoTable, clauses...)
 	if err != nil {
 		err = fmt.Errorf("failed to delete Message: %w", err)
 	}
@@ -189,8 +189,8 @@ func (r *MessageRepo) delete(ctx context.Context, clauses ...query.WhereClause) 
 }
 
 func (r *MessageRepo) Update(ctx context.Context, entity *Message) error {
-	session := depot.MustGetSession(ctx)
-	err := session.UpdateMany(messageRepoTable, r.toValues(entity), query.Where("id", entity.ID))
+	tx := depot.MustGetTx(ctx)
+	err := tx.UpdateMany(messageRepoTable, r.toValues(entity), query.Where("id", entity.ID))
 	if err != nil {
 		err = fmt.Errorf("failed to update Message: %w", err)
 	}

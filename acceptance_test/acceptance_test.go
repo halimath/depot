@@ -71,7 +71,7 @@ create table messages (
 	}
 
 	t.Run("acceptance test", func(t *testing.T) {
-		runTest(t, db, depot.FactoryOptions{
+		runTest(t, db, depot.Options{
 			Dialect: &mysql.Dialect{},
 		})
 	})
@@ -101,7 +101,7 @@ create table messages (
 	}
 
 	t.Run("acceptance test", func(t *testing.T) {
-		runTest(t, db, depot.FactoryOptions{
+		runTest(t, db, depot.Options{
 			Dialect: &postgres.Dialect{},
 		})
 	})
@@ -133,18 +133,18 @@ create table messages (
 	}
 
 	t.Run("acceptance test", func(t *testing.T) {
-		runTest(t, db, depot.FactoryOptions{
+		runTest(t, db, depot.Options{
 			Dialect: &sqlite.Dialect{},
 		})
 	})
 }
 
-func runTest(t *testing.T, pool *sql.DB, opts depot.FactoryOptions) {
-	factory := depot.NewSessionFactory(pool, opts)
-	defer factory.Close()
+func runTest(t *testing.T, pool *sql.DB, opts depot.Options) {
+	db := depot.New(pool, opts)
+	defer db.Close()
 
 	repo := &MessageRepo{
-		factory: factory,
+		db: db,
 	}
 
 	ctx := context.Background()

@@ -34,12 +34,10 @@ var (
 	ErrRollback = errors.New("rolled back")
 )
 
-// Session defines an interaction session with the database.
-// A session uses a single transaction and is bound to a single
-// Context. A session provides an abstract interface built around
-// Values and Clauses.
-type Session struct {
-	options           *FactoryOptions
+// Tx defines a transaction with the database and is always bound to a single Context. It provides an abstract
+// interface built around Values and Clauses to read and write data from or to the database.
+type Tx struct {
+	options           *Options
 	txCount           int
 	tx                *sql.Tx
 	ctx               context.Context
@@ -47,46 +45,53 @@ type Session struct {
 	alreadyRolledback bool
 }
 
-// Commit commits the session's transaction and returns an error
-// if the commit fails.
-func (s *Session) Commit() error {
-	if s.err != nil {
-		return s.err
+// Commit commits the session's transaction and returns an error if the commit failtx.
+func (tx *Tx) Commit() error {
+	if tx.err != nil {
+		return tx.err
 	}
-	if s.txCount > 1 {
-		s.txCount--
+
+	// TODO: What if txCount is 0?
+
+	if tx.txCount > 1 {
+		tx.txCount--
 		return nil
 	}
-	return s.tx.Commit()
+
+	return tx.tx.Commit()
 }
 
-// Rollback rolls the session's transaction back and returns any
-// error raised during the rollback.
-func (s *Session) Rollback() (err error) {
-	if !s.alreadyRolledback {
-		err = s.tx.Rollback()
+// Rollback rolls the session's transaction back and returns any error raised during the rollback.
+// If the transaction has been committed before, it is safe to call Rollback without any error.
+// Thus, Rollback can safely be called using defer.
+func (tx *Tx) Rollback() (err error) {
+	if tx.txCount == 0 {
+		return nil
 	}
 
-	if s.txCount > 1 {
-		s.txCount--
-		s.err = ErrRollback
+	if !tx.alreadyRolledback {
+		err = tx.tx.Rollback()
 	}
 
-	return err
+	if tx.txCount > 1 {
+		tx.txCount--
+		tx.err = ErrRollback
+	}
+
+	return
 }
 
-// Error marks the transaction as failed so it cannot be committed later on.
-// Calling Error with a nil error clears the error state of the transaction.
-func (s *Session) Error(err error) {
-	s.err = err
+// Error marks the transaction as failed so it cannot be committed later on. Calling Error with a nil error
+// clears the error state of the transaction.
+func (tx *Tx) Error(err error) {
+	tx.err = err
 }
 
-// QueryOne executes a query that is expected to return a single result.
-// The columns, table and selection criteria are given as Clauses.
-// QueryOne returns the selected values which is never nil. ErrNoResult is
-// returned when the query did not match any rows.
-func (s *Session) QueryOne(cols *query.ColsClause, from *query.TableClause, where ...query.Clause) (Values, error) {
-	cb := s.options.Dialect.NewClauseBuilder()
+// QueryOne executes a query that is expected to return a single result. // The query selects cols using from
+// and applies all where clauses given. The queries first row (if any) is converted into a Values and is
+// returned. Otherwise ErrNoResult is returned. All other errors are also returned from the database.
+func (tx *Tx) QueryOne(cols *query.ColsClause, from *query.TableClause, where ...query.Clause) (Values, error) {
+	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select ")
 	cols.Write(cb)
@@ -96,11 +101,11 @@ func (s *Session) QueryOne(cols *query.ColsClause, from *query.TableClause, wher
 
 	query := cb.SQL()
 
-	if s.options.LogSQL {
+	if tx.options.LogSQL {
 		log.Printf("QueryOne: '%s'", query)
 	}
 
-	row := s.tx.QueryRowContext(s.ctx, query, cb.Args()...)
+	row := tx.tx.QueryRowContext(tx.ctx, query, cb.Args()...)
 	values, err := collectValues(cols.Names(), row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -112,10 +117,10 @@ func (s *Session) QueryOne(cols *query.ColsClause, from *query.TableClause, wher
 	return values, nil
 }
 
-// QueryMany executes a query that is expected to match any number of rows. The rows are
-// returned as Values. If the query did not match any row an empty slice is returned.
-func (s *Session) QueryMany(cols *query.ColsClause, from *query.TableClause, clauses ...query.Clause) ([]Values, error) {
-	cb := s.options.Dialect.NewClauseBuilder()
+// QueryMany executes a query that is expected to match any number of rowtx. The rows are returned as Valuetx.
+// cols are selected using from and all other clauses are applied.
+func (tx *Tx) QueryMany(cols *query.ColsClause, from *query.TableClause, clauses ...query.Clause) ([]Values, error) {
+	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select ")
 	cols.Write(cb)
@@ -123,14 +128,15 @@ func (s *Session) QueryMany(cols *query.ColsClause, from *query.TableClause, cla
 	from.Write(cb)
 	buildWhereClause(cb, clauses)
 	buildOrderByClause(cb, clauses)
-	// TODO: limit, ...
+
+	// TODO: offset, limit, ...
 
 	query := cb.SQL()
-	if s.options.LogSQL {
+	if tx.options.LogSQL {
 		log.Printf("QueryMany: '%s'", query)
 	}
 
-	rows, err := s.tx.QueryContext(s.ctx, query, cb.Args()...)
+	rows, err := tx.tx.QueryContext(tx.ctx, query, cb.Args()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
@@ -148,45 +154,46 @@ func (s *Session) QueryMany(cols *query.ColsClause, from *query.TableClause, cla
 	return result, nil
 }
 
-// QueryCount executes a counting query and returns the number of matching rows.
-func (s *Session) QueryCount(from *query.TableClause, where ...query.WhereClause) (count int, err error) {
+// QueryCount executes a counting query and returns the number of matching rowtx.
+func (tx *Tx) QueryCount(from *query.TableClause, where ...query.WhereClause) (count int, err error) {
 	whereClauses := make([]query.Clause, len(where))
 	for i, w := range where {
 		whereClauses[i] = w
 	}
 
-	cb := s.options.Dialect.NewClauseBuilder()
+	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select count(*) from ")
 	from.Write(cb)
 	buildWhereClause(cb, whereClauses)
 
 	query := cb.SQL()
-	if s.options.LogSQL {
+	if tx.options.LogSQL {
 		log.Printf("QueryCount: '%s'", query)
 	}
 
-	row := s.tx.QueryRowContext(s.ctx, query, cb.Args()...)
-
+	row := tx.tx.QueryRowContext(tx.ctx, query, cb.Args()...)
 	err = row.Scan(&count)
+
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrNoResult
+		}
 		err = fmt.Errorf("failed to execute '%s': %w", query, err)
 	}
 
 	return
 }
 
-// Exec executes the given query passing the given args and
-// returns the resulting error or nil.
-// This is just a wrapper for calling ExexContext on the wrapped
-// transaction.
-func (s *Session) Exec(query string, args ...interface{}) error {
-	_, err := s.tx.ExecContext(s.ctx, query, args...)
+// Exec executes the given query passing the given args and returns the resulting error or nil.
+// This is just a wrapper for calling ExexContext on the wrapped transaction.
+func (tx *Tx) Exec(query string, args ...interface{}) error {
+	_, err := tx.tx.ExecContext(tx.ctx, query, args...)
 	return err
 }
 
 // InsertOne inserts a single row.
-func (s *Session) InsertOne(into *query.TableClause, values Values) error {
+func (tx *Tx) InsertOne(into *query.TableClause, values Values) error {
 	cols := make([]string, 0, len(values))
 	colVals := make([]interface{}, 0, len(values))
 
@@ -195,7 +202,7 @@ func (s *Session) InsertOne(into *query.TableClause, values Values) error {
 		colVals = append(colVals, v)
 	}
 
-	cb := s.options.Dialect.NewClauseBuilder()
+	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("insert into ")
 	into.Write(cb)
@@ -220,16 +227,16 @@ func (s *Session) InsertOne(into *query.TableClause, values Values) error {
 	cb.WriteString(")")
 
 	query := cb.SQL()
-	if s.options.LogSQL {
+	if tx.options.LogSQL {
 		log.Printf("InsertOne: '%s'", query)
 	}
 
-	return s.Exec(query, cb.Args()...)
+	return tx.Exec(query, cb.Args()...)
 }
 
 // UpdateMany updates all matching rows with the same values given.
-func (s *Session) UpdateMany(table *query.TableClause, values Values, where ...query.Clause) error {
-	cb := s.options.Dialect.NewClauseBuilder()
+func (tx *Tx) UpdateMany(table *query.TableClause, values Values, where ...query.Clause) error {
+	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("update ")
 	table.Write(cb)
@@ -249,37 +256,37 @@ func (s *Session) UpdateMany(table *query.TableClause, values Values, where ...q
 	}
 
 	query := cb.SQL()
-	if s.options.LogSQL {
+	if tx.options.LogSQL {
 		log.Printf("UpdateMany: '%s'", query)
 	}
 
-	return s.Exec(query, cb.Args()...)
+	return tx.Exec(query, cb.Args()...)
 }
 
 // DeleteMany deletes all matching rows from the database.
-func (s *Session) DeleteMany(from *query.TableClause, where ...query.WhereClause) error {
+func (tx *Tx) DeleteMany(from *query.TableClause, where ...query.WhereClause) error {
 	whereClauses := make([]query.Clause, len(where))
 	for i, w := range where {
 		whereClauses[i] = w
 	}
 
-	cb := s.options.Dialect.NewClauseBuilder()
+	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("delete from ")
 	from.Write(cb)
 	buildWhereClause(cb, whereClauses)
 
 	query := cb.SQL()
-	if s.options.LogSQL {
+	if tx.options.LogSQL {
 		log.Printf("DeleteMany: '%s'", query)
 	}
 
-	return s.Exec(query, cb.Args()...)
+	return tx.Exec(query, cb.Args()...)
 }
 
 // captureScanner implements the sql package's Scanner interface and captures
 // the passed value. This struct is used to collect the column values for
-// storing them into Values.
+// storing them into Valuetx.
 type captureScanner struct {
 	val interface{}
 }

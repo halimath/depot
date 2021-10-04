@@ -31,24 +31,20 @@ var (
 func TestReading(t *testing.T) {
 	prepareTestDB(t)
 
-	factory, err := Open("sqlite3", "./test-package.db", FactoryOptions{})
+	db, err := Open("sqlite3", "./test-package.db", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer factory.Close()
+	defer db.Close()
 
 	ctx := context.Background()
-	session, ctx, err := factory.Session(ctx)
+	tx, ctx, err := db.BeginTx(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := session.Commit(); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	defer tx.Rollback()
 
-	count, err := session.QueryCount(query.From("messages"))
+	count, err := tx.QueryCount(query.From("messages"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +53,7 @@ func TestReading(t *testing.T) {
 		t.Errorf("expected 2 messages but got %d", count)
 	}
 
-	msg, err := session.QueryOne(cols, query.From("messages"), query.Where("id", "1"))
+	msg, err := tx.QueryOne(cols, query.From("messages"), query.Where("id", "1"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +62,7 @@ func TestReading(t *testing.T) {
 		t.Errorf("expected prepared message but got: %#v\n", msg)
 	}
 
-	msgs, err := session.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
+	msgs, err := tx.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,13 +76,13 @@ func TestReading(t *testing.T) {
 
 	// Now use a nested transaction
 	func() {
-		session, _, err := factory.Session(ctx)
+		tx, _, err := db.BeginTx(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer session.Commit()
+		defer tx.Rollback()
 
-		msgs, err = session.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
+		msgs, err = tx.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,30 +93,28 @@ func TestReading(t *testing.T) {
 		if msgs[0]["id"] != "2" {
 			t.Errorf("got unexpected first id: %s", msgs[0]["id"])
 		}
+		tx.Commit()
 	}()
+	tx.Commit()
 }
 
 func TestInsert(t *testing.T) {
 	prepareTestDB(t)
 
-	factory, err := Open("sqlite3", "./test-package.db", FactoryOptions{})
+	db, err := Open("sqlite3", "./test-package.db", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer factory.Close()
+	defer db.Close()
 
 	ctx := context.Background()
-	session, _, err := factory.Session(ctx)
+	tx, _, err := db.BeginTx(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := session.Commit(); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	defer tx.Rollback()
 
-	count, err := session.QueryCount(query.From("messages"))
+	count, err := tx.QueryCount(query.From("messages"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,12 +123,12 @@ func TestInsert(t *testing.T) {
 		t.Errorf("expected 2 messages but got %d", count)
 	}
 
-	err = session.InsertOne(query.Into("messages"), Values{"id": "3", "text": "hello, once more", "attachment": []byte{'a', 'b', 'c'}})
+	err = tx.InsertOne(query.Into("messages"), Values{"id": "3", "text": "hello, once more", "attachment": []byte{'a', 'b', 'c'}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	msgs, err := session.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
+	msgs, err := tx.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,29 +144,25 @@ func TestInsert(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	prepareTestDB(t)
 
-	factory, err := Open("sqlite3", "./test-package.db", FactoryOptions{})
+	db, err := Open("sqlite3", "./test-package.db", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer factory.Close()
+	defer db.Close()
 
 	ctx := context.Background()
-	session, _, err := factory.Session(ctx)
+	tx, _, err := db.BeginTx(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := session.Commit(); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	defer tx.Rollback()
 
-	err = session.UpdateMany(query.Table("messages"), Values{"text": "hello, one more time"}, query.Where("id", "2"))
+	err = tx.UpdateMany(query.Table("messages"), Values{"text": "hello, one more time"}, query.Where("id", "2"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	msgs, err := session.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
+	msgs, err := tx.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,24 +178,20 @@ func TestUpdate(t *testing.T) {
 func TestDelete(t *testing.T) {
 	prepareTestDB(t)
 
-	factory, err := Open("sqlite3", "./test-package.db", FactoryOptions{})
+	db, err := Open("sqlite3", "./test-package.db", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer factory.Close()
+	defer db.Close()
 
 	ctx := context.Background()
-	session, _, err := factory.Session(ctx)
+	tx, _, err := db.BeginTx(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := session.Commit(); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	defer tx.Rollback()
 
-	count, err := session.QueryCount(query.From("messages"))
+	count, err := tx.QueryCount(query.From("messages"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,12 +200,12 @@ func TestDelete(t *testing.T) {
 		t.Errorf("expected 2 messages but got %d", count)
 	}
 
-	err = session.DeleteMany(query.From("messages"))
+	err = tx.DeleteMany(query.From("messages"))
 	if err != nil {
 		t.Errorf("expected no error but got: %s", err)
 	}
 
-	count, err = session.QueryCount(query.From("messages"))
+	count, err = tx.QueryCount(query.From("messages"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,29 +218,25 @@ func TestDelete(t *testing.T) {
 func TestNullValues(t *testing.T) {
 	prepareTestDB(t)
 
-	factory, err := Open("sqlite3", "./test-package.db", FactoryOptions{})
+	db, err := Open("sqlite3", "./test-package.db", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer factory.Close()
+	defer db.Close()
 
 	ctx := context.Background()
-	session, _, err := factory.Session(ctx)
+	tx, _, err := db.BeginTx(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := session.Commit(); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	defer tx.Rollback()
 
-	err = session.InsertOne(query.Into("messages"), Values{"id": "3", "text": "hello, once more", "attachment": nil})
+	err = tx.InsertOne(query.Into("messages"), Values{"id": "3", "text": "hello, once more", "attachment": nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	vals, err := session.QueryOne(cols, query.From("messages"), query.Where("id", "3"))
+	vals, err := tx.QueryOne(cols, query.From("messages"), query.Where("id", "3"))
 	if err != nil {
 		t.Fatal(err)
 	}

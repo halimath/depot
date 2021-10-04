@@ -22,9 +22,9 @@ import (
 	"github.com/halimath/depot/query"
 )
 
-func NewMessageRepo(factory *depot.Factory) *MessageRepo {
+func NewMessageRepo(db *depot.DB) *MessageRepo {
 	return &MessageRepo{
-		factory: factory,
+		db: db,
 	}
 }
 
