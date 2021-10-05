@@ -62,16 +62,21 @@ func TestReading(t *testing.T) {
 		t.Errorf("expected prepared message but got: %#v\n", msg)
 	}
 
-	msgs, err := tx.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
+	msgs, err := tx.QueryMany(
+		cols,
+		query.From("messages"),
+		query.IsNotNull("text"), query.IsNull("attachment"),
+		query.OrderBy("id", false),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(msgs) != 2 {
-		t.Errorf("expected 2 messages but got %d", len(msgs))
+	if len(msgs) != 1 {
+		t.Errorf("expected 1 messages but got %d", len(msgs))
 	}
-	if msgs[0]["id"] != "2" {
-		t.Errorf("expected first id to be 2 but got: %s", msgs[0]["id"])
+	if msgs[0]["id"] != "1" {
+		t.Errorf("expected first id to be 1 but got: %s", msgs[0]["id"])
 	}
 
 	// Now use a nested transaction

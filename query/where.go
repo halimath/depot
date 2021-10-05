@@ -122,43 +122,33 @@ func In(column string, values ...interface{}) WhereClause {
 	}
 }
 
-// --
-
-// OrderByClause defines an order by clause.
-type OrderByClause struct {
-	column string
-	asc    bool
+type nullClause struct {
+	col string
+	not bool
 }
 
-func (c *OrderByClause) Write(w Writer) {
-	w.WriteString(c.column)
-	w.WriteRune(' ')
+var _ WhereClause = &nullClause{}
 
-	if c.asc {
-		w.WriteString("asc")
-	} else {
-		w.WriteString("desc")
+func (c *nullClause) where() {}
+
+func (c *nullClause) Write(w Writer) {
+	w.WriteString(c.col)
+	w.WriteString(" is ")
+	if c.not {
+		w.WriteString("not ")
+	}
+	w.WriteString("null")
+}
+
+func IsNotNull(col string) WhereClause {
+	return &nullClause{
+		col: col,
+		not: true,
 	}
 }
 
-var _ Clause = &OrderByClause{}
-
-// OrderBy constructs a new OrderByClause.
-func OrderBy(column string, asc bool) *OrderByClause {
-	return &OrderByClause{
-		column: column,
-		asc:    asc,
+func IsNull(col string) WhereClause {
+	return &nullClause{
+		col: col,
 	}
-}
-
-// Asc returns an OrderByClause sorting by the given column in
-// ascending order.
-func Asc(column string) *OrderByClause {
-	return OrderBy(column, true)
-}
-
-// Desc returns an OrderByClause sorting by the given column in
-// descending order.
-func Desc(column string) *OrderByClause {
-	return OrderBy(column, false)
 }

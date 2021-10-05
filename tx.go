@@ -90,14 +90,14 @@ func (tx *Tx) Error(err error) {
 // QueryOne executes a query that is expected to return a single result. // The query selects cols using from
 // and applies all where clauses given. The queries first row (if any) is converted into a Values and is
 // returned. Otherwise ErrNoResult is returned. All other errors are also returned from the database.
-func (tx *Tx) QueryOne(cols *query.ColsClause, from *query.TableClause, where ...query.Clause) (Values, error) {
+func (tx *Tx) QueryOne(cols *query.ColsClause, from *query.TableClause, where ...query.WhereClause) (Values, error) {
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select ")
 	cols.Write(cb)
 	cb.WriteString(" from ")
 	from.Write(cb)
-	buildWhereClause(cb, where)
+	appendWhere(cb, where)
 
 	query := cb.SQL()
 
@@ -126,8 +126,8 @@ func (tx *Tx) QueryMany(cols *query.ColsClause, from *query.TableClause, clauses
 	cols.Write(cb)
 	cb.WriteString(" from ")
 	from.Write(cb)
-	buildWhereClause(cb, clauses)
-	buildOrderByClause(cb, clauses)
+	pickAndAppendWhere(cb, clauses)
+	pickAndAppendOrderBy(cb, clauses)
 
 	// TODO: offset, limit, ...
 
@@ -156,16 +156,11 @@ func (tx *Tx) QueryMany(cols *query.ColsClause, from *query.TableClause, clauses
 
 // QueryCount executes a counting query and returns the number of matching rowtx.
 func (tx *Tx) QueryCount(from *query.TableClause, where ...query.WhereClause) (count int, err error) {
-	whereClauses := make([]query.Clause, len(where))
-	for i, w := range where {
-		whereClauses[i] = w
-	}
-
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select count(*) from ")
 	from.Write(cb)
-	buildWhereClause(cb, whereClauses)
+	appendWhere(cb, where)
 
 	query := cb.SQL()
 	if tx.options.LogSQL {
@@ -235,7 +230,7 @@ func (tx *Tx) InsertOne(into *query.TableClause, values Values) error {
 }
 
 // UpdateMany updates all matching rows with the same values given.
-func (tx *Tx) UpdateMany(table *query.TableClause, values Values, where ...query.Clause) error {
+func (tx *Tx) UpdateMany(table *query.TableClause, values Values, where ...query.WhereClause) error {
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("update ")
@@ -255,6 +250,8 @@ func (tx *Tx) UpdateMany(table *query.TableClause, values Values, where ...query
 		cb.BindParameter(val)
 	}
 
+	appendWhere(cb, where)
+
 	query := cb.SQL()
 	if tx.options.LogSQL {
 		log.Printf("UpdateMany: '%s'", query)
@@ -265,16 +262,11 @@ func (tx *Tx) UpdateMany(table *query.TableClause, values Values, where ...query
 
 // DeleteMany deletes all matching rows from the database.
 func (tx *Tx) DeleteMany(from *query.TableClause, where ...query.WhereClause) error {
-	whereClauses := make([]query.Clause, len(where))
-	for i, w := range where {
-		whereClauses[i] = w
-	}
-
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("delete from ")
 	from.Write(cb)
-	buildWhereClause(cb, whereClauses)
+	appendWhere(cb, where)
 
 	query := cb.SQL()
 	if tx.options.LogSQL {
@@ -335,8 +327,23 @@ func collectValues(names []string, scanner Scanner) (Values, error) {
 	return values, nil
 }
 
-// buildWhereClause selects all where clauses from the given clauses writes them to cb.
-func buildWhereClause(cb query.Writer, clauses []query.Clause) {
+func appendWhere(cb query.Writer, clauses []query.WhereClause) {
+	if len(clauses) == 0 {
+		return
+	}
+
+	cb.WriteString(" where ")
+
+	for i, c := range clauses {
+		if i > 0 {
+			cb.WriteString(" and ")
+		}
+		c.Write(cb)
+	}
+}
+
+// pickAndAppendWhere selects all where clauses from the given clauses writes them to cb.
+func pickAndAppendWhere(cb query.Writer, clauses []query.Clause) {
 	var found bool
 
 	for _, c := range clauses {
@@ -352,8 +359,8 @@ func buildWhereClause(cb query.Writer, clauses []query.Clause) {
 	}
 }
 
-// buildOrderByClause selects all OrderByClauses and writes them to cb.
-func buildOrderByClause(cb query.Writer, clauses []query.Clause) {
+// pickAndAppendOrderBy selects all OrderByClauses and writes them to cb.
+func pickAndAppendOrderBy(cb query.Writer, clauses []query.Clause) {
 	first := true
 
 	for _, c := range clauses {
