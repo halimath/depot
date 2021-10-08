@@ -37,12 +37,11 @@ import (
 	"context"
 
 	"github.com/halimath/depot"
-	"github.com/halimath/depot/query"
 )
 
 var (
-	{{lcFirst .Opts.RepoName}}Cols  = query.Cols({{range .Mapping.Fields}}"{{.Column}}", {{end}})
-	{{lcFirst .Opts.RepoName}}Table = query.Table("{{.Opts.TableName}}")
+	{{lcFirst .Opts.RepoName}}Cols  = depot.Cols({{range .Mapping.Fields}}"{{.Column}}", {{end}})
+	{{lcFirst .Opts.RepoName}}Table = depot.Table("{{.Opts.TableName}}")
 )
 
 type {{.Opts.RepoName}} struct {
@@ -86,7 +85,7 @@ func (r *{{.Opts.RepoName}}) fromValues(vals depot.Values) (*{{.Opts.EntityName}
 	}, nil
 }
 
-func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...query.Clause) ([]*{{.Opts.EntityName}}, error) {
+func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...depot.SelectClause) ([]*{{.Opts.EntityName}}, error) {
 	tx := depot.MustGetTx(ctx)
 	vals, err := tx.QueryMany({{lcFirst .Opts.RepoName}}Cols, {{lcFirst .Opts.RepoName}}Table, clauses...)
 	if err != nil {
@@ -106,7 +105,7 @@ func (r *{{.Opts.RepoName}}) find(ctx context.Context, clauses ...query.Clause) 
 	return res, nil
 }
 
-func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...query.WhereClause) (int, error) {
+func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...depot.WhereClause) (int, error) {
 	tx := depot.MustGetTx(ctx)
 	count, err := tx.QueryCount({{lcFirst .Opts.RepoName}}Table, clauses...)
 	if err != nil {
@@ -122,7 +121,7 @@ func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...query.WhereCl
 
 	func (r *{{.Opts.RepoName}}) LoadBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type.Expr}}) (*{{.Opts.EntityName}}, error) {
 		tx := depot.MustGetTx(ctx)
-		vals, err := tx.QueryOne({{lcFirst .Opts.RepoName}}Cols, {{lcFirst .Opts.RepoName}}Table, query.Where("{{$id.Column}}", {{$id.Field}}))
+		vals, err := tx.QueryOne({{lcFirst .Opts.RepoName}}Cols, {{lcFirst .Opts.RepoName}}Table, depot.Where(depot.Eq("{{$id.Column}}", {{$id.Field}})))
 		if err != nil {
 			err = fmt.Errorf("failed to load {{.Opts.EntityName}} by {{$id.Field}}: %w", err)
 			if !errors.Is(err, depot.ErrNoResult) {
@@ -153,7 +152,7 @@ func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...query.WhereCl
 		return err
 	}
 
-	func (r *{{.Opts.RepoName}}) delete(ctx context.Context, clauses... query.WhereClause) error {
+	func (r *{{.Opts.RepoName}}) delete(ctx context.Context, clauses... depot.WhereClause) error {
 		tx := depot.MustGetTx(ctx)
 		err := tx.DeleteMany({{lcFirst .Opts.RepoName}}Table, clauses...)
 		if err != nil {
@@ -166,7 +165,7 @@ func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...query.WhereCl
 
 		func (r *{{.Opts.RepoName}}) Update(ctx context.Context, entity *{{.Opts.EntityName}}) error {
 			tx := depot.MustGetTx(ctx)
-			err := tx.UpdateMany({{lcFirst .Opts.RepoName}}Table, r.toValues(entity), query.Where("{{$id.Column}}", entity.{{$id.Field}}))
+			err := tx.UpdateMany({{lcFirst .Opts.RepoName}}Table, r.toValues(entity), depot.Where(depot.Eq("{{$id.Column}}", entity.{{$id.Field}})))
 			if err != nil {
 				err = fmt.Errorf("failed to update {{.Opts.EntityName}}: %w", err)
 			}
@@ -174,11 +173,11 @@ func (r *{{.Opts.RepoName}}) count(ctx context.Context, clauses ...query.WhereCl
 		}
 
 		func (r *{{.Opts.RepoName}}) DeleteBy{{$id.Field}}(ctx context.Context, {{$id.Field}} {{$id.Type.Expr}}) error {
-			return r.delete(ctx, query.Where("{{$id.Column}}", {{$id.Field}}))
+			return r.delete(ctx, depot.Where(depot.Eq("{{$id.Column}}", {{$id.Field}})))
 		}
 
 		func (r *{{.Opts.RepoName}}) Delete(ctx context.Context, entity *{{.Opts.EntityName}}) error {
-			return r.delete(ctx, query.Where("{{$id.Column}}", entity.{{$id.Field}}))
+			return r.delete(ctx, depot.Where(depot.Eq("{{$id.Column}}", entity.{{$id.Field}})))
 		}
 
 	{{end}}

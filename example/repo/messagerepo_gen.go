@@ -11,12 +11,11 @@ import (
 
 	"github.com/halimath/depot"
 	"github.com/halimath/depot/example/models"
-	"github.com/halimath/depot/query"
 )
 
 var (
-	messageRepoCols  = query.Cols("id", "text", "order_index", "len", "attachment", "created", "updated")
-	messageRepoTable = query.Table("messages")
+	messageRepoCols  = depot.Cols("id", "text", "order_index", "len", "attachment", "created", "updated")
+	messageRepoTable = depot.Table("messages")
 )
 
 type MessageRepo struct {
@@ -114,7 +113,7 @@ func (r *MessageRepo) fromValues(vals depot.Values) (*models.Message, error) {
 	}, nil
 }
 
-func (r *MessageRepo) find(ctx context.Context, clauses ...query.Clause) ([]*models.Message, error) {
+func (r *MessageRepo) find(ctx context.Context, clauses ...depot.SelectClause) ([]*models.Message, error) {
 	tx := depot.MustGetTx(ctx)
 	vals, err := tx.QueryMany(messageRepoCols, messageRepoTable, clauses...)
 	if err != nil {
@@ -134,7 +133,7 @@ func (r *MessageRepo) find(ctx context.Context, clauses ...query.Clause) ([]*mod
 	return res, nil
 }
 
-func (r *MessageRepo) count(ctx context.Context, clauses ...query.WhereClause) (int, error) {
+func (r *MessageRepo) count(ctx context.Context, clauses ...depot.WhereClause) (int, error) {
 	tx := depot.MustGetTx(ctx)
 	count, err := tx.QueryCount(messageRepoTable, clauses...)
 	if err != nil {
@@ -148,7 +147,7 @@ func (r *MessageRepo) count(ctx context.Context, clauses ...query.WhereClause) (
 
 func (r *MessageRepo) LoadByID(ctx context.Context, ID string) (*models.Message, error) {
 	tx := depot.MustGetTx(ctx)
-	vals, err := tx.QueryOne(messageRepoCols, messageRepoTable, query.Where("id", ID))
+	vals, err := tx.QueryOne(messageRepoCols, messageRepoTable, depot.Where(depot.Eq("id", ID)))
 	if err != nil {
 		err = fmt.Errorf("failed to load models.Message by ID: %w", err)
 		if !errors.Is(err, depot.ErrNoResult) {
@@ -180,7 +179,7 @@ func (r *MessageRepo) Insert(ctx context.Context, entity *models.Message) error 
 	return err
 }
 
-func (r *MessageRepo) delete(ctx context.Context, clauses ...query.WhereClause) error {
+func (r *MessageRepo) delete(ctx context.Context, clauses ...depot.WhereClause) error {
 	tx := depot.MustGetTx(ctx)
 	err := tx.DeleteMany(messageRepoTable, clauses...)
 	if err != nil {
@@ -191,7 +190,7 @@ func (r *MessageRepo) delete(ctx context.Context, clauses ...query.WhereClause) 
 
 func (r *MessageRepo) Update(ctx context.Context, entity *models.Message) error {
 	tx := depot.MustGetTx(ctx)
-	err := tx.UpdateMany(messageRepoTable, r.toValues(entity), query.Where("id", entity.ID))
+	err := tx.UpdateMany(messageRepoTable, r.toValues(entity), depot.Where(depot.Eq("id", entity.ID)))
 	if err != nil {
 		err = fmt.Errorf("failed to update models.Message: %w", err)
 	}
@@ -199,9 +198,9 @@ func (r *MessageRepo) Update(ctx context.Context, entity *models.Message) error 
 }
 
 func (r *MessageRepo) DeleteByID(ctx context.Context, ID string) error {
-	return r.delete(ctx, query.Where("id", ID))
+	return r.delete(ctx, depot.Where(depot.Eq("id", ID)))
 }
 
 func (r *MessageRepo) Delete(ctx context.Context, entity *models.Message) error {
-	return r.delete(ctx, query.Where("id", entity.ID))
+	return r.delete(ctx, depot.Where(depot.Eq("id", entity.ID)))
 }

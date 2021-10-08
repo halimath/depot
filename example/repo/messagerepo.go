@@ -19,7 +19,6 @@ import (
 
 	"github.com/halimath/depot"
 	"github.com/halimath/depot/example/models"
-	"github.com/halimath/depot/query"
 )
 
 func NewMessageRepo(db *depot.DB) *MessageRepo {
@@ -29,5 +28,5 @@ func NewMessageRepo(db *depot.DB) *MessageRepo {
 }
 
 func (r *MessageRepo) FindByText(ctx context.Context, text string) ([]*models.Message, error) {
-	return r.find(ctx, query.Where("text", text))
+	return r.find(ctx, depot.Where(depot.Eq("text", text)))
 }

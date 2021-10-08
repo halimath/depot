@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-
-	"github.com/halimath/depot/query"
 )
 
 var (
@@ -90,7 +88,7 @@ func (tx *Tx) Error(err error) {
 // QueryOne executes a query that is expected to return a single result. // The query selects cols using from
 // and applies all where clauses given. The queries first row (if any) is converted into a Values and is
 // returned. Otherwise ErrNoResult is returned. All other errors are also returned from the database.
-func (tx *Tx) QueryOne(cols *query.ColsClause, from *query.TableClause, where ...query.WhereClause) (Values, error) {
+func (tx *Tx) QueryOne(cols ColsClause, from TableClause, where ...WhereClause) (Values, error) {
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select ")
@@ -119,7 +117,7 @@ func (tx *Tx) QueryOne(cols *query.ColsClause, from *query.TableClause, where ..
 
 // QueryMany executes a query that is expected to match any number of rowtx. The rows are returned as Valuetx.
 // cols are selected using from and all other clauses are applied.
-func (tx *Tx) QueryMany(cols *query.ColsClause, from *query.TableClause, clauses ...query.Clause) ([]Values, error) {
+func (tx *Tx) QueryMany(cols ColsClause, from TableClause, clauses ...SelectClause) ([]Values, error) {
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select ")
@@ -154,8 +152,9 @@ func (tx *Tx) QueryMany(cols *query.ColsClause, from *query.TableClause, clauses
 	return result, nil
 }
 
-// QueryCount executes a counting query and returns the number of matching rowtx.
-func (tx *Tx) QueryCount(from *query.TableClause, where ...query.WhereClause) (count int, err error) {
+// QueryCount executes a counting query and returns the number of matching rows.
+// TODO: Should the last parameter be of type SelectClause?
+func (tx *Tx) QueryCount(from TableClause, where ...WhereClause) (count int, err error) {
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("select count(*) from ")
@@ -188,7 +187,7 @@ func (tx *Tx) Exec(query string, args ...interface{}) error {
 }
 
 // InsertOne inserts a single row.
-func (tx *Tx) InsertOne(into *query.TableClause, values Values) error {
+func (tx *Tx) InsertOne(into TableClause, values Values) error {
 	cols := make([]string, 0, len(values))
 	colVals := make([]interface{}, 0, len(values))
 
@@ -230,7 +229,7 @@ func (tx *Tx) InsertOne(into *query.TableClause, values Values) error {
 }
 
 // UpdateMany updates all matching rows with the same values given.
-func (tx *Tx) UpdateMany(table *query.TableClause, values Values, where ...query.WhereClause) error {
+func (tx *Tx) UpdateMany(table TableClause, values Values, where ...WhereClause) error {
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("update ")
@@ -261,7 +260,7 @@ func (tx *Tx) UpdateMany(table *query.TableClause, values Values, where ...query
 }
 
 // DeleteMany deletes all matching rows from the database.
-func (tx *Tx) DeleteMany(from *query.TableClause, where ...query.WhereClause) error {
+func (tx *Tx) DeleteMany(from TableClause, where ...WhereClause) error {
 	cb := tx.options.Dialect.NewClauseBuilder()
 
 	cb.WriteString("delete from ")
@@ -307,7 +306,7 @@ var _ sql.Scanner = &captureScanner{}
 
 // collectValues collects the single row values from the given scanner and
 // returns them as a Values value. Names define the column names which must
-// be in the same order as they appeared in the query.
+// be in the same order as they appeared in the
 func collectValues(names []string, scanner Scanner) (Values, error) {
 	scanners := make([]interface{}, 0, len(names))
 	for range names {
@@ -327,7 +326,7 @@ func collectValues(names []string, scanner Scanner) (Values, error) {
 	return values, nil
 }
 
-func appendWhere(cb query.Writer, clauses []query.WhereClause) {
+func appendWhere(cb ClauseWriter, clauses []WhereClause) {
 	if len(clauses) == 0 {
 		return
 	}
@@ -343,11 +342,11 @@ func appendWhere(cb query.Writer, clauses []query.WhereClause) {
 }
 
 // pickAndAppendWhere selects all where clauses from the given clauses writes them to cb.
-func pickAndAppendWhere(cb query.Writer, clauses []query.Clause) {
+func pickAndAppendWhere(cb ClauseWriter, clauses []SelectClause) {
 	var found bool
 
 	for _, c := range clauses {
-		if w, ok := c.(query.WhereClause); ok {
+		if w, ok := c.(WhereClause); ok {
 			if !found {
 				cb.WriteString(" where ")
 				found = true
@@ -360,11 +359,11 @@ func pickAndAppendWhere(cb query.Writer, clauses []query.Clause) {
 }
 
 // pickAndAppendOrderBy selects all OrderByClauses and writes them to cb.
-func pickAndAppendOrderBy(cb query.Writer, clauses []query.Clause) {
+func pickAndAppendOrderBy(cb ClauseWriter, clauses []SelectClause) {
 	first := true
 
 	for _, c := range clauses {
-		if w, ok := c.(*query.OrderByClause); ok {
+		if w, ok := c.(OrderByClause); ok {
 			if first {
 				cb.WriteString(" order by ")
 			} else {

@@ -16,13 +16,11 @@ package depot
 
 import (
 	"strings"
-
-	"github.com/halimath/depot/query"
 )
 
 // QueryBuilder defines the interface for types that are used to build clauses.
 type QueryBuilder interface {
-	query.Writer
+	ClauseWriter
 
 	SQL() string
 	Args() []interface{}

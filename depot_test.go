@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package depot
+package depot_test
 
 import (
 	"context"
@@ -20,18 +20,20 @@ import (
 	"os"
 	"testing"
 
-	"github.com/halimath/depot/query"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/halimath/depot"
+	"github.com/halimath/depot/engine/sqlite"
 )
 
 var (
-	cols = query.Cols("id", "text", "attachment")
+	cols = depot.Cols("id", "text", "attachment")
 )
 
 func TestReading(t *testing.T) {
 	prepareTestDB(t)
 
-	db, err := Open("sqlite3", "./test-package.db", Options{})
+	db, err := depot.Open("sqlite3", "./test-package.db", depot.Options{
+		Dialect: &sqlite.Dialect{},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +46,7 @@ func TestReading(t *testing.T) {
 	}
 	defer tx.Rollback()
 
-	count, err := tx.QueryCount(query.From("messages"))
+	count, err := tx.QueryCount(depot.From("messages"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +55,13 @@ func TestReading(t *testing.T) {
 		t.Errorf("expected 2 messages but got %d", count)
 	}
 
-	msg, err := tx.QueryOne(cols, query.From("messages"), query.Where("id", "1"))
+	msg, err := tx.QueryOne(
+		cols,
+		depot.From("messages"),
+		depot.Where(
+			depot.Eq("id", "1"),
+		),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,9 +72,12 @@ func TestReading(t *testing.T) {
 
 	msgs, err := tx.QueryMany(
 		cols,
-		query.From("messages"),
-		query.IsNotNull("text"), query.IsNull("attachment"),
-		query.OrderBy("id", false),
+		depot.From("messages"),
+		depot.Where(
+			depot.IsNotNull("text"),
+			depot.IsNull("attachment"),
+		),
+		depot.OrderBy(depot.Desc("id")),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +98,7 @@ func TestReading(t *testing.T) {
 		}
 		defer tx.Rollback()
 
-		msgs, err = tx.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
+		msgs, err = tx.QueryMany(cols, depot.From("messages"), depot.OrderBy(depot.Desc("id")))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -106,7 +117,9 @@ func TestReading(t *testing.T) {
 func TestInsert(t *testing.T) {
 	prepareTestDB(t)
 
-	db, err := Open("sqlite3", "./test-package.db", Options{})
+	db, err := depot.Open("sqlite3", "./test-package.db", depot.Options{
+		Dialect: &sqlite.Dialect{},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +132,7 @@ func TestInsert(t *testing.T) {
 	}
 	defer tx.Rollback()
 
-	count, err := tx.QueryCount(query.From("messages"))
+	count, err := tx.QueryCount(depot.From("messages"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,12 +141,15 @@ func TestInsert(t *testing.T) {
 		t.Errorf("expected 2 messages but got %d", count)
 	}
 
-	err = tx.InsertOne(query.Into("messages"), Values{"id": "3", "text": "hello, once more", "attachment": []byte{'a', 'b', 'c'}})
+	err = tx.InsertOne(
+		depot.Into("messages"),
+		depot.Values{"id": "3", "text": "hello, once more", "attachment": []byte{'a', 'b', 'c'}},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	msgs, err := tx.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
+	msgs, err := tx.QueryMany(cols, depot.From("messages"), depot.OrderBy(depot.Desc("id")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +165,9 @@ func TestInsert(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	prepareTestDB(t)
 
-	db, err := Open("sqlite3", "./test-package.db", Options{})
+	db, err := depot.Open("sqlite3", "./test-package.db", depot.Options{
+		Dialect: &sqlite.Dialect{},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,12 +180,16 @@ func TestUpdate(t *testing.T) {
 	}
 	defer tx.Rollback()
 
-	err = tx.UpdateMany(query.Table("messages"), Values{"text": "hello, one more time"}, query.Where("id", "2"))
+	err = tx.UpdateMany(
+		depot.Table("messages"),
+		depot.Values{"text": "hello, one more time"},
+		depot.Where(depot.Eq("id", "2")),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	msgs, err := tx.QueryMany(cols, query.From("messages"), query.OrderBy("id", false))
+	msgs, err := tx.QueryMany(cols, depot.From("messages"), depot.OrderBy(depot.Desc("id")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +205,9 @@ func TestUpdate(t *testing.T) {
 func TestDelete(t *testing.T) {
 	prepareTestDB(t)
 
-	db, err := Open("sqlite3", "./test-package.db", Options{})
+	db, err := depot.Open("sqlite3", "./test-package.db", depot.Options{
+		Dialect: &sqlite.Dialect{},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +220,7 @@ func TestDelete(t *testing.T) {
 	}
 	defer tx.Rollback()
 
-	count, err := tx.QueryCount(query.From("messages"))
+	count, err := tx.QueryCount(depot.From("messages"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,12 +229,12 @@ func TestDelete(t *testing.T) {
 		t.Errorf("expected 2 messages but got %d", count)
 	}
 
-	err = tx.DeleteMany(query.From("messages"))
+	err = tx.DeleteMany(depot.From("messages"))
 	if err != nil {
 		t.Errorf("expected no error but got: %s", err)
 	}
 
-	count, err = tx.QueryCount(query.From("messages"))
+	count, err = tx.QueryCount(depot.From("messages"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +247,9 @@ func TestDelete(t *testing.T) {
 func TestNullValues(t *testing.T) {
 	prepareTestDB(t)
 
-	db, err := Open("sqlite3", "./test-package.db", Options{})
+	db, err := depot.Open("sqlite3", "./test-package.db", depot.Options{
+		Dialect: &sqlite.Dialect{},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,12 +262,15 @@ func TestNullValues(t *testing.T) {
 	}
 	defer tx.Rollback()
 
-	err = tx.InsertOne(query.Into("messages"), Values{"id": "3", "text": "hello, once more", "attachment": nil})
+	err = tx.InsertOne(
+		depot.Into("messages"),
+		depot.Values{"id": "3", "text": "hello, once more", "attachment": nil},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	vals, err := tx.QueryOne(cols, query.From("messages"), query.Where("id", "3"))
+	vals, err := tx.QueryOne(cols, depot.From("messages"), depot.Where(depot.Eq("id", "3")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +288,9 @@ func prepareTestDB(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = db.Exec("create table messages (id varchar primary key, text varchar not null, attachment blob default null)")
+	_, err = db.Exec(
+		"create table messages (id varchar primary key, text varchar not null, attachment blob default null)",
+	)
 	if err != nil {
 		db.Close()
 		t.Fatal(err)

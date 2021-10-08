@@ -14,7 +14,11 @@
 
 package sqlite
 
-import "github.com/halimath/depot"
+import (
+	"github.com/halimath/depot"
+
+	_ "github.com/mattn/go-sqlite3"
+)
 
 // Dialect provides a dialect for the SQLite3 database.
 type Dialect = depot.DefaultDialect
